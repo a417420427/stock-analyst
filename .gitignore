@@ -1,0 +1,52 @@
+# ─── Python ─────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# ─── Node ───────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/build/
+*.tsbuildinfo
+
+# ─── 数据库 ─────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ─── 环境变量（含 API Keys） ────────────────────
+.env
+backend/.env
+frontend/.env
+.env.local
+.env.production
+
+# ─── IDE / OS ───────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── 日志 ───────────────────────────────────────
+*.log
+/tmp/*.log
+
+# ─── 虚拟环境 / 包 ──────────────────────────────
+*.whl
+*.zip
+
+# ─── Celery ─────────────────────────────────────
+celerybeat-schedule/
+
+# ─── 前端构建产物 ───────────────────────────────
+frontend/.vite/
+frontend/stats.html
