@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.models import Strategy, StrategyTemplate, StrategyTrigger
+from app.models import Strategy, StrategyTemplate, StrategyTrigger, Stock
 from app.schemas import StrategyCreate, StrategyOut, StrategyTriggerOut, StrategyUpdate
 
 router = APIRouter()
@@ -74,6 +74,44 @@ async def get_triggers(strategy_id: int, limit: int = 20, db: AsyncSession = Dep
         .limit(limit)
     )
     return [StrategyTriggerOut.model_validate(t) for t in result.scalars().all()]
+
+
+@router.post("/{strategy_id}/test-trigger")
+async def test_strategy_trigger(strategy_id: int, db: AsyncSession = Depends(get_db)):
+    """测试策略触发 — 模拟触发并推送"""
+    from app.services.strategy import StrategyEngine
+    from app.services.push import PushRouter
+
+    strategy = await db.get(Strategy, strategy_id)
+    if not strategy:
+        raise HTTPException(404, "策略不存在")
+
+    triggers = await StrategyEngine(db).scan_strategy(strategy)
+    if not triggers:
+        return {"message": "条件未满足，未触发", "triggers": 0}
+
+    results = []
+    for trigger in triggers:
+        stock = await db.get(Stock, trigger.stock_id)
+        if not stock:
+            continue
+        price = (trigger.trigger_data or {}).get("price", "N/A")
+        body = (
+            f"⚡ 策略触发测试\n"
+            f"策略: {strategy.name}\n"
+            f"标的: {stock.name} ({stock.symbol}.{stock.market})\n"
+            f"价格: {price}\n"
+            f"时间: {trigger.triggered_at.strftime('%H:%M:%S')}"
+        )
+        router = PushRouter(db)
+        push_results = await router.push(
+            user_id=1, title=f"测试: {strategy.name}", body=body, level="normal", trigger_id=trigger.id
+        )
+        results.extend(push_results)
+        await StrategyEngine(db).execute_actions(trigger)
+
+    await db.commit()
+    return {"message": f"触发 {len(triggers)} 个信号", "push_results": results}
 
 
 # ─── 策略模板 ──────────────────────────────────

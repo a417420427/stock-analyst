@@ -18,8 +18,8 @@ interface StockItem {
   symbol: string;
   market: string;
   name: string;
-  price: number;
-  change: string;
+  price: number | string;
+  change?: string;
 }
 
 interface KlinePoint {
@@ -39,6 +39,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadData();
+    // 每 30 秒自动刷新行情
+    const timer = setInterval(loadData, 30000);
+    return () => clearInterval(timer);
   }, []);
 
   const loadData = async () => {
@@ -104,7 +107,8 @@ export default function Dashboard() {
     setKlineData(result);
   };
 
-  const getPriceColor = (change: string) => {
+  const getPriceColor = (change: string | undefined | null) => {
+    if (!change) return '';
     if (change.startsWith('+')) return 'price-up';
     if (change.startsWith('-')) return 'price-down';
     return '';
@@ -205,7 +209,7 @@ export default function Dashboard() {
       </Card>
 
       {/* 实时行情列表 */}
-      <Card title="📈 实时行情" style={{ marginBottom: 24 }}>
+      <Card title={<Space><span>📈 实时行情</span><Tag color="blue" style={{ fontSize: 10 }}>自动刷新 30s</Tag></Space>} style={{ marginBottom: 24 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #f0f0f0' }}>

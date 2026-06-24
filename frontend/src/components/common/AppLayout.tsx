@@ -6,6 +6,7 @@ import {
   NotificationOutlined,
   BarChartOutlined,
   RobotOutlined,
+  WalletOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
@@ -16,6 +17,7 @@ const menuItems = [
   { key: '/watchlist', icon: <StarOutlined />, label: '自选股' },
   { key: '/strategies', icon: <ThunderboltOutlined />, label: '策略引擎' },
   { key: '/push', icon: <NotificationOutlined />, label: '推送设置' },
+  { key: '/portfolio', icon: <WalletOutlined />, label: '模拟仓位' },
   { key: '/ai', icon: <RobotOutlined />, label: 'AI 设置' },
 ];
 

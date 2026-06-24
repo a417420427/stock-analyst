@@ -84,8 +84,19 @@ async def comprehensive_analysis(stock_id: int, db: AsyncSession = Depends(get_d
     prev_price = float(prices[-2].close) if len(prices) > 1 else 0
     change_pct = round((latest_price - prev_price) / prev_price * 100, 2) if prev_price else 0
 
+    def to_num(v):
+        return float(v) if v is not None else None
+
     return {
-        "stock": {"id": stock.id, "symbol": stock.symbol, "name": stock.name, "market": stock.market},
+        "stock": {
+            "id": stock.id, "symbol": stock.symbol, "name": stock.name, "market": stock.market,
+            "pe_ttm": to_num(stock.pe_ttm),
+            "pb": to_num(stock.pb),
+            "market_cap": to_num(stock.market_cap),
+            "dividend_yield": to_num(stock.dividend_yield),
+            "revenue_growth": to_num(stock.revenue_growth),
+            "profit_margin": to_num(stock.profit_margin),
+        },
         "latest_price": latest_price,
         "change_pct": change_pct,
         "volume": int(prices[-1].volume) if prices else 0,

@@ -43,6 +43,13 @@ class Stock(Base):
     industry = Column(String(64), nullable=True)
     is_active = Column(Boolean, default=True)
     listed_date = Column(DateTime, nullable=True)
+    # 基本面
+    pe_ttm = Column(DECIMAL(12, 4), nullable=True)
+    pb = Column(DECIMAL(12, 4), nullable=True)
+    market_cap = Column(DECIMAL(20, 4), nullable=True)
+    dividend_yield = Column(DECIMAL(8, 4), nullable=True)
+    revenue_growth = Column(DECIMAL(8, 4), nullable=True)
+    profit_margin = Column(DECIMAL(8, 4), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (
@@ -192,7 +199,7 @@ class StrategyTrigger(Base):
     """策略触发记录"""
     __tablename__ = "strategy_triggers"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     strategy_id = Column(Integer, ForeignKey("strategies.id"), nullable=False, index=True)
     stock_id = Column(Integer, ForeignKey("stocks.id"), nullable=False)
     trigger_data = Column(JSON, nullable=True)  # 触发时的快照数据
@@ -262,6 +269,25 @@ class PushHistory(Base):
 
 
 # ─── 模拟交易 ────────────────────────────────────────
+
+class Financial(Base):
+    """季度财务数据"""
+    __tablename__ = "financials"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stock_id = Column(Integer, ForeignKey("stocks.id"), nullable=False, index=True)
+    quarter = Column(String(8), nullable=False)  # 2024Q1
+    revenue = Column(DECIMAL(20, 4), nullable=True)
+    net_profit = Column(DECIMAL(20, 4), nullable=True)
+    eps = Column(DECIMAL(12, 4), nullable=True)
+    roe = Column(DECIMAL(8, 4), nullable=True)
+    gross_margin = Column(DECIMAL(8, 4), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("stock_id", "quarter", name="uq_financial_stock_quarter"),
+    )
+
 
 class SimulatedTrade(Base):
     """模拟交易记录"""

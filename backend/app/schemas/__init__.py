@@ -47,6 +47,12 @@ class StockBase(BaseModel):
 
 class StockOut(StockBase):
     id: int
+    pe_ttm: Optional[Decimal] = None
+    pb: Optional[Decimal] = None
+    market_cap: Optional[Decimal] = None
+    dividend_yield: Optional[Decimal] = None
+    revenue_growth: Optional[Decimal] = None
+    profit_margin: Optional[Decimal] = None
 
     model_config = {"from_attributes": True}
 

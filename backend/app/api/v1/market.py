@@ -56,8 +56,9 @@ async def get_realtime(stock_id: int, db: AsyncSession = Depends(get_db)):
         return {"symbol": stock.symbol, "name": stock.name, "price": "N/A"}
 
     latest = prices[0]
-    change = f"+{(float(latest.close) - float(prices[1].close)) / float(prices[1].close) * 100:.2f}%" \
-        if len(prices) > 1 else "0%"
+    pct = (float(latest.close) - float(prices[1].close)) / float(prices[1].close) * 100 \
+        if len(prices) > 1 else 0
+    change = f"{pct:+.2f}%"
 
     return {
         "symbol": stock.symbol,
@@ -90,7 +91,7 @@ async def get_watchlists(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/watchlists")
-async def create_watchlist(name: str = "默认分组", db: AsyncSession = Depends(get_db)):
+async def create_watchlist(name: str = Body("默认分组"), db: AsyncSession = Depends(get_db)):
     wl = Watchlist(name=name)
     db.add(wl)
     await db.flush()
@@ -118,6 +119,47 @@ async def load_all_stocks(db: AsyncSession = Depends(get_db)):
         results["US"] = f"error: {e}"
     await db.commit()
     return {"message": "加载完成", "results": results}
+
+
+@router.post("/stocks/{stock_id}/fetch-realtime")
+async def fetch_realtime_prices(stock_id: int, days: int = Query(60, ge=5, le=365), db: AsyncSession = Depends(get_db)):
+    """拉取某只股票的真实 K 线数据（yfinance）"""
+    stock = await db.get(Stock, stock_id)
+    if not stock:
+        return {"error": "股票不存在"}
+    svc = MarketService(db)
+    prices = await svc.fetch_real_prices(stock, days)
+    return {"symbol": stock.symbol, "market": stock.market, "name": stock.name, "count": len(prices)}
+
+
+@router.post("/stocks/{stock_id}/fetch-fundamentals")
+async def fetch_fundamentals(stock_id: int, db: AsyncSession = Depends(get_db)):
+    """拉取基本面数据"""
+    stock = await db.get(Stock, stock_id)
+    if not stock:
+        return {"error": "股票不存在"}
+    svc = MarketService(db)
+    result = await svc.fetch_fundamentals(stock)
+    return {"symbol": stock.symbol, "name": stock.name, "fundamentals": result}
+
+
+@router.post("/stocks/fetch-all-realtime")
+async def fetch_all_realtime(db: AsyncSession = Depends(get_db)):
+    """拉取所有自选股的真实 K 线数据"""
+    result = await db.execute(select(Watchlist))
+    watchlists = list(result.scalars().all())
+    svc = MarketService(db)
+    total = 0
+    for wl in watchlists:
+        items = await db.execute(
+            select(WatchlistItem).where(WatchlistItem.watchlist_id == wl.id)
+        )
+        for item in items.scalars().all():
+            stock = await db.get(Stock, item.stock_id)
+            if stock:
+                prices = await svc.fetch_real_prices(stock)
+                total += len(prices)
+    return {"message": "刷新完成", "total_prices": total}
 
 
 @router.get("/stocks/all", response_model=list[StockOut])
@@ -180,3 +222,31 @@ async def remove_from_watchlist(
     await db.delete(item)
     await db.flush()
     return {"message": "移出成功"}
+
+
+@router.patch("/watchlists/{watchlist_id}")
+async def rename_watchlist(watchlist_id: int, name: str = Body(...), db: AsyncSession = Depends(get_db)):
+    """重命名自选股分组"""
+    wl = await db.get(Watchlist, watchlist_id)
+    if not wl:
+        return {"error": "分组不存在"}
+    wl.name = name
+    await db.flush()
+    return {"message": "重命名成功"}
+
+
+@router.delete("/watchlists/{watchlist_id}")
+async def delete_watchlist(watchlist_id: int, db: AsyncSession = Depends(get_db)):
+    """删除自选股分组"""
+    wl = await db.get(Watchlist, watchlist_id)
+    if not wl:
+        return {"error": "分组不存在"}
+    # 删除所有关联的 items
+    items = await db.execute(
+        select(WatchlistItem).where(WatchlistItem.watchlist_id == watchlist_id)
+    )
+    for item in items.scalars().all():
+        await db.delete(item)
+    await db.delete(wl)
+    await db.flush()
+    return {"message": "删除成功"}

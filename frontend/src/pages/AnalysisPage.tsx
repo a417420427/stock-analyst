@@ -20,6 +20,12 @@ interface StockInfo {
   symbol: string;
   name: string;
   market: string;
+  pe_ttm?: number | string | null;
+  pb?: number | string | null;
+  market_cap?: number | string | null;
+  dividend_yield?: number | string | null;
+  revenue_growth?: number | string | null;
+  profit_margin?: number | string | null;
 }
 
 interface AnalysisResult {
@@ -147,7 +153,7 @@ export default function AnalysisPage() {
 
   return (
     <div>
-      {/* 股票概览 */}
+      {/* 股票概览 + 基本面 */}
       <Card style={{ marginBottom: 16 }}>
         <Row gutter={24} align="middle">
           <Col>
@@ -173,6 +179,16 @@ export default function AnalysisPage() {
             </Space>
           </Col>
         </Row>
+
+        {/* 基本面数据 */}
+        <div style={{ marginTop: 12, padding: '8px 0', borderTop: '1px solid #f0f0f0', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+          <FundItem label="PE (TTM)" value={analysis.stock.pe_ttm} suffix="" />
+          <FundItem label="PB" value={analysis.stock.pb} suffix="" />
+          <FundItem label="市值" value={analysis.stock.market_cap} suffix="" formatter />
+          <FundItem label="股息率" value={analysis.stock.dividend_yield} suffix="%" />
+          <FundItem label="营收增长" value={analysis.stock.revenue_growth} suffix="%" />
+          <FundItem label="利润率" value={analysis.stock.profit_margin} suffix="%" />
+        </div>
       </Card>
 
       {/* AI 分析摘要 */}
@@ -362,6 +378,31 @@ export default function AnalysisPage() {
           ]}
         />
       </Card>
+    </div>
+  );
+}
+
+/** 基本面数值项 */
+function FundItem({ label, value, suffix = '', formatter = false }: {
+  label: string;
+  value: any;
+  suffix?: string;
+  formatter?: boolean;
+}) {
+  const numVal = value != null ? Number(value) : 0;
+  const displayVal = numVal !== 0
+    ? formatter
+      ? numVal >= 1e12
+        ? `${(numVal / 1e12).toFixed(2)}万亿`
+        : `${(numVal / 1e8).toFixed(2)}亿`
+      : `${numVal.toFixed(2)}${suffix}`
+    : '-';
+  return (
+    <div style={{ textAlign: 'center', minWidth: 80 }}>
+      <div style={{ fontSize: 11, color: '#86909c', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: displayVal === '-' ? '#ddd' : '#1d2129' }}>
+        {displayVal}
+      </div>
     </div>
   );
 }

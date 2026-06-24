@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import {
-  Card, Input, Table, Tag, Button, Space, message, Modal, Form, Tabs,
+  Card, Input, Table, Tag, Button, Space, message, Tabs,
+  Modal, Dropdown, Popconfirm,
 } from 'antd';
-import { SearchOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined,
+  MoreOutlined,
+} from '@ant-design/icons';
 import api from '../services/api';
 
 const { Search } = Input;
@@ -14,6 +18,9 @@ interface Stock {
   name: string;
   sector?: string;
   industry?: string;
+  pe_ttm?: number | null;
+  pb?: number | null;
+  market_cap?: number | null;
 }
 
 interface WatchlistGroup {
@@ -32,6 +39,7 @@ export default function WatchlistPage() {
   const [loadingAll, setLoadingAll] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [activeTab, setActiveTab] = useState('watchlist');
+  const [renameModal, setRenameModal] = useState<{ id: number; name: string } | null>(null);
 
   useEffect(() => {
     loadGroups();
@@ -41,135 +49,149 @@ export default function WatchlistPage() {
   const loadGroups = async () => {
     try {
       const res = await api.get('/market/watchlists');
-      setGroups(res.data);
-    } catch {
-      message.error('加载自选股失败');
-    }
+      setGroups(res.data || []);
+    } catch { message.error('加载自选股失败'); }
   };
 
   const loadAllStocks = async () => {
     setLoadingAll(true);
     try {
-      const res = await api.get('/market/stocks/all', {
-        params: { limit: 500 },
-      });
-      if (Array.isArray(res.data)) {
-        setAllStocks(res.data);
-      }
-    } catch {
-      message.error('加载股票列表失败');
-    }
+      const res = await api.get('/market/stocks/all', { params: { limit: 500 } });
+      setAllStocks(Array.isArray(res.data) ? res.data : []);
+    } catch { message.error('加载股票列表失败'); }
     setLoadingAll(false);
   };
 
   const handleSearch = async (value: string) => {
-    if (!value.trim()) {
-      setSearchResults([]);
-      return;
-    }
+    if (!value.trim()) { setSearchResults([]); return; }
     setSearching(true);
     try {
       const res = await api.get('/market/stocks/search', { params: { q: value.trim() } });
       setSearchResults(res.data);
-    } catch {
-      message.error('搜索失败');
-    }
+    } catch { message.error('搜索失败'); }
     setSearching(false);
   };
 
-  const handleRemove = async (stock: Stock) => {
+  const handleAdd = async (stock: Stock, groupId?: number) => {
+    const targetId = groupId || groups[0]?.id;
+    if (!targetId) { message.error('请先创建分组'); return; }
     try {
-      const targetGroup = groups[0];
-      if (!targetGroup) return;
-      await api.delete(`/market/watchlists/${targetGroup.id}/items/${stock.id}`);
-      message.success(`已移出 ${stock.name}`);
-      loadGroups();
-    } catch {
-      message.error('移出失败');
-    }
-  };
-
-  const handleAdd = async (stock: Stock) => {
-    try {
-      const targetGroup = groups[0];
-      if (!targetGroup) {
-        message.error('请先创建一个自选股分组');
-        return;
-      }
-      const res = await api.post(`/market/watchlists/${targetGroup.id}/items`, {
-        stock_id: stock.id,
-      });
+      const res = await api.post(`/market/watchlists/${targetId}/items`, { stock_id: stock.id });
       if (res.data?.message === '已存在') {
         message.info(`${stock.name} 已在自选股中`);
       } else {
         message.success(`已添加 ${stock.name}`);
       }
       loadGroups();
-    } catch {
-      message.error('添加失败');
-    }
+    } catch { message.error('添加失败'); }
   };
 
-  // 搜索列（带添加按钮）
+  const handleRemove = async (stock: Stock) => {
+    const g = groups.find(gg => gg.stocks.some(s => s.id === stock.id));
+    if (!g) return;
+    try {
+      await api.delete(`/market/watchlists/${g.id}/items/${stock.id}`);
+      message.success(`已移出 ${stock.name}`);
+      loadGroups();
+    } catch { message.error('移出失败'); }
+  };
+
+  const handleCreateGroup = async () => {
+    const name = prompt('输入分组名称：');
+    if (!name?.trim()) return;
+    try {
+      await api.post('/market/watchlists', name.trim(), { headers: { 'Content-Type': 'application/json' } });
+      message.success('分组已创建');
+      loadGroups();
+    } catch { message.error('创建失败'); }
+  };
+
+  const handleRename = async () => {
+    if (!renameModal) return;
+    try {
+      await api.patch(`/market/watchlists/${renameModal.id}`, renameModal.name, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      message.success('重命名成功');
+      setRenameModal(null);
+      loadGroups();
+    } catch { message.error('重命名失败'); }
+  };
+
+  const handleDeleteGroup = async (id: number) => {
+    try {
+      await api.delete(`/market/watchlists/${id}`);
+      message.success('分组已删除');
+      loadGroups();
+    } catch { message.error('删除失败'); }
+  };
+
+  const handleMoveStock = async (stock: Stock, targetGroupId: number) => {
+    const currentGroup = groups.find(gg => gg.stocks.some(s => s.id === stock.id));
+    if (!currentGroup || currentGroup.id === targetGroupId) return;
+    try {
+      await api.delete(`/market/watchlists/${currentGroup.id}/items/${stock.id}`);
+      await api.post(`/market/watchlists/${targetGroupId}/items`, { stock_id: stock.id });
+      message.success(`已移到 ${groups.find(gg => gg.id === targetGroupId)?.name}`);
+      loadGroups();
+    } catch { message.error('移动失败'); }
+  };
+
   const searchColumns = [
+    { title: '市场', dataIndex: 'market', width: 70, render: (m: string) => <Tag color={marketTag[m]}>{m}</Tag> },
+    { title: '代码', dataIndex: 'symbol', width: 100 },
+    { title: '名称', dataIndex: 'name' },
+    { title: '行业', dataIndex: 'industry', width: 100 },
     {
-      title: '市场',
-      dataIndex: 'market',
-      key: 'market',
-      width: 70,
-      render: (m: string) => <Tag color={marketTag[m] || 'default'}>{m}</Tag>,
-    },
-    { title: '代码', dataIndex: 'symbol', key: 'symbol', width: 100 },
-    { title: '名称', dataIndex: 'name', key: 'name' },
-    { title: '行业', dataIndex: 'industry', key: 'industry', width: 100 },
-    {
-      title: '操作',
-      key: 'action',
-      width: 80,
-      render: (_: any, record: Stock) => (
-        <Button type="link" size="small" onClick={() => handleAdd(record)}>
-          添加
-        </Button>
+      title: '操作', key: 'action', width: 140,
+      render: (_: unknown, r: Stock) => (
+        <AddToGroupSelect groups={groups} stock={r} onAdd={handleAdd} />
       ),
     },
   ];
 
-  // 自选股列
-  const watchlistColumns = [
+  const watchlistColumns = (groupId: number) => [
+    { title: '市场', dataIndex: 'market', width: 70, render: (m: string) => <Tag color={marketTag[m]}>{m}</Tag> },
+    { title: '代码', dataIndex: 'symbol', width: 100 },
+    { title: '名称', dataIndex: 'name' },
+    { title: '行业', dataIndex: 'industry', width: 100 },
     {
-      title: '市场',
-      dataIndex: 'market',
-      key: 'market',
-      width: 70,
-      render: (m: string) => <Tag color={marketTag[m] || 'default'}>{m}</Tag>,
-    },
-    { title: '代码', dataIndex: 'symbol', key: 'symbol', width: 100 },
-    { title: '名称', dataIndex: 'name', key: 'name' },
-    { title: '行业', dataIndex: 'industry', key: 'industry', width: 100 },
-    {
-      title: '操作',
-      key: 'action',
-      width: 180,
-      render: (_: any, record: Stock) => {
-        return (
-          <Space>
-            <Button type="link" size="small" href={`/analysis/${record.id}`}>
-              分析
-            </Button>
-            <Button type="link" size="small" danger onClick={() => handleRemove(record)}>
-              移出
-            </Button>
-          </Space>
-        );
+      title: '基本面', key: 'fundamentals', width: 200,
+      render: (_: unknown, r: Stock) => {
+        const parts: string[] = [];
+        if (r.pe_ttm != null && Number(r.pe_ttm) > 0) parts.push(`PE:${Number(r.pe_ttm).toFixed(1)}`);
+        if (r.pb != null && Number(r.pb) > 0) parts.push(`PB:${Number(r.pb).toFixed(1)}`);
+        return parts.length > 0 ? (
+          <span style={{ fontSize: 11, color: '#86909c' }}>{parts.join(' ')}</span>
+        ) : <span style={{ fontSize: 11, color: '#ddd' }}>-</span>;
       },
+    },
+    {
+      title: '操作', key: 'action', width: 160,
+      render: (_: unknown, r: Stock) => (
+        <Space>
+          <Button type="link" size="small" href={`/analysis/${r.id}`}>分析</Button>
+          <Dropdown menu={{
+            items: [
+              ...groups.filter(gg => gg.id !== groupId).map(gg => ({
+                key: `move-${gg.id}`,
+                label: `移到「${gg.name}」`,
+                onClick: () => handleMoveStock(r, gg.id),
+              })),
+              { type: 'divider' as const },
+              { key: 'remove', label: '移出', danger: true, onClick: () => handleRemove(r) },
+            ],
+          }}>
+            <Button type="link" size="small" icon={<MoreOutlined />} />
+          </Dropdown>
+        </Space>
+      ),
     },
   ];
 
-  // 全部可搜索股票列表
   const allStockFiltered = allStocks.filter(
-    (s) =>
-      s.symbol.toLowerCase().includes(searchText.toLowerCase()) ||
-      s.name.toLowerCase().includes(searchText.toLowerCase())
+    s => s.symbol.toLowerCase().includes(searchText.toLowerCase()) ||
+         s.name.toLowerCase().includes(searchText.toLowerCase())
   );
 
   return (
@@ -180,26 +202,48 @@ export default function WatchlistPage() {
         items={[
           {
             key: 'watchlist',
-            label: '⭐ 我的自选股',
+            label: `⭐ 自选股 (${groups.reduce((s, g) => s + g.stocks.length, 0)})`,
             children: (
-              <Card>
+              <Card
+                extra={
+                  <Space>
+                    <Button size="small" icon={<PlusOutlined />} onClick={handleCreateGroup}>新建分组</Button>
+                  </Space>
+                }
+              >
                 {groups.length === 0 ? (
-                  <span style={{ color: '#999' }}>暂无分组</span>
+                  <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>暂无分组，点击「新建分组」创建</div>
                 ) : (
                   <Tabs
-                    items={groups.map((g) => ({
+                    tabBarExtraContent={
+                      groups.length > 0 ? (
+                        <Space>
+                          <Button size="small" icon={<EditOutlined />}
+                            onClick={() => {
+                              const first = groups[0];
+                              setRenameModal({ id: first.id, name: first.name });
+                            }}>
+                            重命名
+                          </Button>
+                          {groups.length > 1 && (
+                            <Popconfirm title="删除整个分组及其包含的股票？" onConfirm={() => handleDeleteGroup(groups[0].id)}>
+                              <Button size="small" danger icon={<DeleteOutlined />}>删除</Button>
+                            </Popconfirm>
+                          )}
+                        </Space>
+                      ) : null
+                    }
+                    items={groups.map(g => ({
                       key: String(g.id),
-                      label: g.name,
+                      label: `${g.name} (${g.stocks.length})`,
                       children: (
-                        <Table
-                          dataSource={g.stocks}
-                          columns={watchlistColumns}
-                          rowKey="id"
-                          pagination={false}
-                          size="small"
-                        />
+                        <Table dataSource={g.stocks} columns={watchlistColumns(g.id)} rowKey="id" pagination={false} size="small" />
                       ),
                     }))}
+                    onChange={(key) => {
+                      const g = groups.find(gg => String(gg.id) === key);
+                      if (g) setRenameModal({ id: g.id, name: g.name });
+                    }}
                   />
                 )}
               </Card>
@@ -211,41 +255,33 @@ export default function WatchlistPage() {
             children: (
               <Card>
                 <Search
-                  placeholder="输入股票代码或名称搜索（如 600519 / AAPL / 腾讯）"
+                  placeholder="输入股票代码或名称搜索"
                   enterButton={<><SearchOutlined /> 搜索</>}
                   size="large"
                   loading={searching}
                   onSearch={handleSearch}
                   style={{ marginBottom: 16 }}
                 />
-                {searchResults.length > 0 && (
-                  <Table
-                    dataSource={searchResults}
-                    columns={searchColumns}
-                    rowKey="id"
-                    pagination={false}
-                    size="small"
-                  />
-                )}
-                {searchResults.length === 0 && !searching && (
+                {searchResults.length > 0 ? (
+                  <Table dataSource={searchResults} columns={searchColumns} rowKey="id" pagination={false} size="small" />
+                ) : !searching ? (
                   <span style={{ color: '#999' }}>输入关键词搜索 A 股 / 港股 / 美股</span>
-                )}
+                ) : null}
               </Card>
             ),
           },
           {
             key: 'all',
-            label: '📋 股票列表',
+            label: `📋 全部股票 (${allStocks.length})`,
             children: (
               <Card
-                title={`全部股票 (${allStocks.length})`}
                 extra={
                   <Input
                     placeholder="筛选..."
                     size="small"
                     style={{ width: 180 }}
                     value={searchText}
-                    onChange={(e) => setSearchText(e.target.value)}
+                    onChange={e => setSearchText(e.target.value)}
                     allowClear
                   />
                 }
@@ -254,39 +290,21 @@ export default function WatchlistPage() {
                 <Table
                   dataSource={allStockFiltered}
                   columns={[
+                    { title: '市场', dataIndex: 'market', width: 70, render: (m: string) => <Tag color={marketTag[m]}>{m}</Tag> },
+                    { title: '代码', dataIndex: 'symbol', width: 100 },
+                    { title: '名称', dataIndex: 'name' },
+                    { title: '行业', dataIndex: 'industry', width: 100 },
                     {
-                      title: '市场',
-                      dataIndex: 'market',
-                      key: 'market',
-                      width: 70,
-                      render: (m: string) => <Tag color={marketTag[m] || 'default'}>{m}</Tag>,
-                    },
-                    { title: '代码', dataIndex: 'symbol', key: 'symbol', width: 100 },
-                    { title: '名称', dataIndex: 'name', key: 'name' },
-                    { title: '行业', dataIndex: 'industry', key: 'industry', width: 100 },
-                    {
-                      title: '操作',
-                      key: 'action',
-                      width: 200,
-                      render: (_: any, record: Stock) => {
-                        const inWatchlist = groups.some((g) =>
-                          g.stocks.some((s) => s.id === record.id)
-                        );
+                      title: '操作', key: 'action', width: 200,
+                      render: (_: unknown, r: Stock) => {
+                        const inWatchlist = groups.some(gg => gg.stocks.some(s => s.id === r.id));
                         return (
                           <Space>
-                            <Button type="link" size="small" href={`/analysis/${record.id}`}>
-                              分析
-                            </Button>
+                            <Button type="link" size="small" href={`/analysis/${r.id}`}>分析</Button>
                             {!inWatchlist ? (
-                              <Button type="link" size="small" onClick={() => handleAdd(record)}>
-                                添加自选
-                              </Button>
+                              <AddToGroupSelect groups={groups} stock={r} onAdd={handleAdd} />
                             ) : (
-                              <>
-                                <Button type="link" size="small" danger onClick={() => handleRemove(record)}>
-                                  移出自选
-                                </Button>
-                              </>
+                              <Button type="link" size="small" danger onClick={() => handleRemove(r)}>移出</Button>
                             )}
                           </Space>
                         );
@@ -302,6 +320,53 @@ export default function WatchlistPage() {
           },
         ]}
       />
+
+      <Modal
+        title="重命名分组"
+        open={!!renameModal}
+        onOk={handleRename}
+        onCancel={() => setRenameModal(null)}
+        okText="确定"
+        cancelText="取消"
+      >
+        <Input
+          value={renameModal?.name || ''}
+          onChange={e => setRenameModal(prev => prev ? { ...prev, name: e.target.value } : null)}
+          placeholder="输入新名称"
+        />
+      </Modal>
     </div>
+  );
+}
+
+/** 添加至分组的下拉选择器 */
+function AddToGroupSelect({ groups, stock, onAdd }: {
+  groups: WatchlistGroup[];
+  stock: Stock;
+  onAdd: (stock: Stock, groupId?: number) => void;
+}) {
+  if (groups.length === 0) return <span style={{ color: '#999', fontSize: 12 }}>无分组</span>;
+  return (
+    <select
+      value=""
+      onChange={(e) => {
+        const v = parseInt(e.target.value);
+        if (v) onAdd(stock, v);
+      }}
+      style={{
+        padding: '2px 8px',
+        borderRadius: 6,
+        border: '1px solid #d9d9d9',
+        fontSize: 12,
+        background: '#fff',
+        cursor: 'pointer',
+        maxWidth: 120,
+      }}
+    >
+      <option value="">添加到...</option>
+      {groups.map(g => (
+        <option key={g.id} value={g.id}>{g.name}</option>
+      ))}
+    </select>
   );
 }
