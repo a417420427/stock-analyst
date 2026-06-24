@@ -4,6 +4,7 @@ import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from '../services/api';
 import MiniKlineChart from '../components/market/MiniKlineChart';
+import StockDetailModal from '../components/market/StockDetailModal';
 
 const { Text, Title } = Typography;
 
@@ -35,7 +36,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [stocks, setStocks] = useState<StockItem[]>([]);
   const [klineData, setKlineData] = useState<Record<number, KlinePoint[]>>({});
+  const [lastUpdated, setLastUpdated] = useState('');
   const [stats, setStats] = useState({ stocks: 0, strategies: 0, triggers: 0 });
+  const [detailStockId, setDetailStockId] = useState<number | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -77,6 +81,7 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Load dashboard error:', err);
     }
+    setLastUpdated(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
     setLoading(false);
   };
 
@@ -177,7 +182,10 @@ export default function Dashboard() {
                     </Text>
                   }
                   hoverable
-                  onClick={() => (window.location.href = `/analysis/${s.id}`)}
+                  onClick={() => {
+                    setDetailStockId(s.id);
+                    setDetailOpen(true);
+                  }}
                   bodyStyle={{ padding: 0 }}
                 >
                   {klineData[s.id] && klineData[s.id].length > 0 ? (
@@ -209,7 +217,7 @@ export default function Dashboard() {
       </Card>
 
       {/* 实时行情列表 */}
-      <Card title={<Space><span>📈 实时行情</span><Tag color="blue" style={{ fontSize: 10 }}>自动刷新 30s</Tag></Space>} style={{ marginBottom: 24 }}>
+      <Card title={<Space><span>📈 实时行情</span><Tag color="blue" style={{ fontSize: 10 }}>自动刷新 30s</Tag><span style={{ fontSize: 11, color: '#999' }}>更新于 {lastUpdated}</span></Space>} style={{ marginBottom: 24 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
@@ -244,6 +252,10 @@ export default function Dashboard() {
                   {s.change}
                 </td>
                 <td style={{ ...tdStyle, textAlign: 'right' }}>
+                  <a style={{ cursor: 'pointer', marginRight: 8 }}
+                    onClick={(e) => { e.preventDefault(); setDetailStockId(s.id); setDetailOpen(true); }}>
+                    详情
+                  </a>
                   <a href={`/analysis/${s.id}`}>分析</a>
                 </td>
               </tr>
@@ -291,6 +303,16 @@ export default function Dashboard() {
           </Card>
         </Col>
       </Row>
+
+      {/* 股票详情弹窗 */}
+      <StockDetailModal
+        stockId={detailStockId}
+        open={detailOpen}
+        onClose={() => {
+          setDetailOpen(false);
+          setDetailStockId(null);
+        }}
+      />
     </Spin>
   );
 }

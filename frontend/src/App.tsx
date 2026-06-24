@@ -9,6 +9,7 @@ import AnalysisPage from './pages/AnalysisPage';
 import PushSettingsPage from './pages/PushSettingsPage';
 import AISettingsPage from './pages/AISettingsPage';
 import PortfolioPage from './pages/PortfolioPage';
+import SectorPage from './pages/SectorPage';
 
 function App() {
   return (
@@ -45,6 +46,7 @@ function App() {
             <Route path="push" element={<PushSettingsPage />} />
             <Route path="ai" element={<AISettingsPage />} />
             <Route path="portfolio" element={<PortfolioPage />} />
+            <Route path="sectors" element={<SectorPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

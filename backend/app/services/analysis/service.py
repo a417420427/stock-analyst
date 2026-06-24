@@ -27,6 +27,8 @@ class AnalysisService:
                 "volume": int(p.volume),
             })
         df = pd.DataFrame(records)
+        if df.empty:
+            return df
         df = df.sort_values("date").reset_index(drop=True)
         return df
 

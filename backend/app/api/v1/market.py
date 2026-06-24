@@ -1,5 +1,5 @@
 """行情相关 API"""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Body
@@ -250,3 +250,100 @@ async def delete_watchlist(watchlist_id: int, db: AsyncSession = Depends(get_db)
     await db.delete(wl)
     await db.flush()
     return {"message": "删除成功"}
+
+
+# ─── 交易日历 ─────────────────────────────────────
+
+def _market_status(
+    tz_name: str,
+    open_hour: int, open_min: int,
+    close_hour: int, close_min: int,
+    pre_minutes: int = 30,
+    post_minutes: int = 30,
+):
+    """
+    判断给定市场当前处于什么阶段。
+    pre_minutes / post_minutes 为盘前/盘后范围（分钟）。
+    返回 { status, next_open, next_close }
+    """
+    import pytz
+    tz = pytz.timezone(tz_name)
+    now = datetime.now(tz)
+
+    today_open = now.replace(hour=open_hour, minute=open_min, second=0, microsecond=0)
+    today_close = now.replace(hour=close_hour, minute=close_min, second=0, microsecond=0)
+
+    pre_start = today_open - timedelta(minutes=pre_minutes)
+    post_end = today_close + timedelta(minutes=post_minutes)
+
+    # 如果是周六/日，直接返回闭市
+    weekday = now.weekday()
+    is_trading_day = weekday < 5
+
+    if not is_trading_day:
+        return {
+            "status": "closed",
+            "next_open": (now + timedelta(days=(7 - weekday) if weekday == 6 else (1 - weekday))).replace(
+                hour=open_hour, minute=open_min, second=0, microsecond=0
+            ).isoformat(),
+            "next_close": (now + timedelta(days=(7 - weekday) if weekday == 6 else (1 - weekday))).replace(
+                hour=close_hour, minute=close_min, second=0, microsecond=0
+            ).isoformat(),
+        }
+
+    if pre_start <= now < today_open:
+        return {
+            "status": "pre",
+            "next_open": today_open.isoformat(),
+            "next_close": today_close.isoformat(),
+        }
+    elif today_open <= now <= today_close:
+        return {
+            "status": "trading",
+            "next_open": today_open.isoformat(),
+            "next_close": today_close.isoformat(),
+        }
+    elif today_close < now <= post_end:
+        return {
+            "status": "post",
+            "next_open": (today_open + timedelta(days=1)).isoformat(),
+            "next_close": (today_close + timedelta(days=1)).isoformat(),
+        }
+    else:
+        # 闭市，等到下一个交易日
+        next_day = now + timedelta(days=1)
+        # 如果第二天是周末，跳到周一
+        while next_day.weekday() >= 5:
+            next_day += timedelta(days=1)
+        next_open = next_day.replace(hour=open_hour, minute=open_min, second=0, microsecond=0)
+        next_close = next_day.replace(hour=close_hour, minute=close_min, second=0, microsecond=0)
+        return {
+            "status": "closed",
+            "next_open": next_open.isoformat(),
+            "next_close": next_close.isoformat(),
+        }
+
+
+@router.get("/trading-status")
+async def get_trading_status():
+    """
+    获取各市场当前交易状态。
+    根据当前时间判断 A股 / 港股 / 美股处于交易/盘前/盘后/休市。
+    """
+    import pytz
+
+    # A 股：北京时间 9:30-15:00，盘前 30min，盘后 30min
+    a_status = _market_status("Asia/Shanghai", 9, 30, 15, 0, 30, 30)
+
+    # 港股：北京时间 9:30-16:00
+    hk_status = _market_status("Asia/Shanghai", 9, 30, 16, 0, 30, 30)
+
+    # 美股：美东时间 9:30-16:00 (ET = UTC-5 / UTC-4 DST) -> 即 21:30-04:00+1 北京时间
+    us_status = _market_status("US/Eastern", 9, 30, 16, 0, 30, 30)
+
+    return {
+        "a": a_status,
+        "hk": hk_status,
+        "us": us_status,
+        "server_time": datetime.now(timezone.utc).isoformat(),
+    }

@@ -1,4 +1,4 @@
-import { Layout, Menu } from 'antd';
+import { Layout, Menu, Space } from 'antd';
 import {
   DashboardOutlined,
   StarOutlined,
@@ -7,8 +7,10 @@ import {
   BarChartOutlined,
   RobotOutlined,
   WalletOutlined,
+  ApartmentOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import TradingCalendar from './TradingCalendar';
 
 const { Sider, Content, Header } = Layout;
 
@@ -19,6 +21,7 @@ const menuItems = [
   { key: '/push', icon: <NotificationOutlined />, label: '推送设置' },
   { key: '/portfolio', icon: <WalletOutlined />, label: '模拟仓位' },
   { key: '/ai', icon: <RobotOutlined />, label: 'AI 设置' },
+  { key: '/sectors', icon: <ApartmentOutlined />, label: '行业板块' },
 ];
 
 export default function AppLayout() {
@@ -79,17 +82,20 @@ export default function AppLayout() {
           <div style={{ fontSize: 16, fontWeight: 600, color: '#1d2129' }}>
             {menuItems.find(i => i.key === selectedKeyFinal)?.label || '仪表盘'}
           </div>
-          <div style={{ color: '#86909c', fontSize: 13 }}>
-            {new Date().toLocaleString('zh-CN', {
-              timeZone: 'Asia/Shanghai',
-              hour12: false,
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </div>
+          <Space>
+            <TradingCalendar />
+            <span style={{ color: '#86909c', fontSize: 13 }}>
+              {new Date().toLocaleString('zh-CN', {
+                timeZone: 'Asia/Shanghai',
+                hour12: false,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+          </Space>
         </Header>
 
         {/* 内容区 */}

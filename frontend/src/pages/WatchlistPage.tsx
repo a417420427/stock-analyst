@@ -5,9 +5,10 @@ import {
 } from 'antd';
 import {
   SearchOutlined, PlusOutlined, EditOutlined, DeleteOutlined,
-  MoreOutlined,
+  MoreOutlined, InfoCircleOutlined,
 } from '@ant-design/icons';
 import api from '../services/api';
+import StockDetailModal from '../components/market/StockDetailModal';
 
 const { Search } = Input;
 
@@ -40,6 +41,8 @@ export default function WatchlistPage() {
   const [searchText, setSearchText] = useState('');
   const [activeTab, setActiveTab] = useState('watchlist');
   const [renameModal, setRenameModal] = useState<{ id: number; name: string } | null>(null);
+  const [detailStockId, setDetailStockId] = useState<number | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   useEffect(() => {
     loadGroups();
@@ -170,6 +173,7 @@ export default function WatchlistPage() {
       title: '操作', key: 'action', width: 160,
       render: (_: unknown, r: Stock) => (
         <Space>
+          <Button type="link" size="small" onClick={() => { setDetailStockId(r.id); setDetailOpen(true); }} icon={<InfoCircleOutlined />}>详情</Button>
           <Button type="link" size="small" href={`/analysis/${r.id}`}>分析</Button>
           <Dropdown menu={{
             items: [
@@ -300,6 +304,7 @@ export default function WatchlistPage() {
                         const inWatchlist = groups.some(gg => gg.stocks.some(s => s.id === r.id));
                         return (
                           <Space>
+                            <Button type="link" size="small" onClick={() => { setDetailStockId(r.id); setDetailOpen(true); }} icon={<InfoCircleOutlined />}>详情</Button>
                             <Button type="link" size="small" href={`/analysis/${r.id}`}>分析</Button>
                             {!inWatchlist ? (
                               <AddToGroupSelect groups={groups} stock={r} onAdd={handleAdd} />
@@ -335,6 +340,16 @@ export default function WatchlistPage() {
           placeholder="输入新名称"
         />
       </Modal>
+
+      {/* 股票详情弹窗 */}
+      <StockDetailModal
+        stockId={detailStockId}
+        open={detailOpen}
+        onClose={() => {
+          setDetailOpen(false);
+          setDetailStockId(null);
+        }}
+      />
     </div>
   );
 }
