@@ -23,52 +23,84 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 计算当前选中菜单项（支持子路径）
   const selectedKey = '/' + location.pathname.split('/')[1];
   const selectedKeyFinal = menuItems.find(i => i.key === selectedKey) ? selectedKey : '/';
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider theme="light" width={220} style={{ borderRight: '1px solid #f0f0f0' }}>
-        <div style={{
-          height: 64,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 18,
-          fontWeight: 700,
-          color: '#1677ff',
-          borderBottom: '1px solid #f0f0f0',
-        }}>
-          📊 StockAnalyst
+      {/* 深色侧边栏 */}
+      <Sider
+        width={220}
+        theme="dark"
+        style={{
+          background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)',
+          borderRight: 'none',
+        }}
+      >
+        <div className="sidebar-logo" style={{ color: '#fff' }}>
+          <span style={{ marginRight: 8, fontSize: 22 }}>📊</span>
+          <span style={{ background: 'linear-gradient(90deg, #667eea, #764ba2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            StockAnalyst
+          </span>
         </div>
         <Menu
+          theme="dark"
           mode="inline"
           selectedKeys={[selectedKeyFinal]}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
-          style={{ borderRight: 'none', marginTop: 8 }}
+          style={{
+            background: 'transparent',
+            borderRight: 'none',
+            marginTop: 8,
+          }}
         />
       </Sider>
+
       <Layout>
-        <Header style={{
-          background: '#fff',
-          padding: '0 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderBottom: '1px solid #f0f0f0',
-          height: 56,
-        }}>
-          <div style={{ fontSize: 16, fontWeight: 500 }}>
+        {/* 顶部栏 */}
+        <Header
+          style={{
+            background: '#fff',
+            padding: '0 28px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #f0f0f0',
+            height: 56,
+            boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+            position: 'sticky',
+            top: 0,
+            zIndex: 100,
+          }}
+        >
+          <div style={{ fontSize: 16, fontWeight: 600, color: '#1d2129' }}>
             {menuItems.find(i => i.key === selectedKeyFinal)?.label || '仪表盘'}
           </div>
-          <div style={{ color: '#999', fontSize: 13 }}>
-            {new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}
+          <div style={{ color: '#86909c', fontSize: 13 }}>
+            {new Date().toLocaleString('zh-CN', {
+              timeZone: 'Asia/Shanghai',
+              hour12: false,
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
           </div>
         </Header>
-        <Content style={{ padding: 24, background: '#f0f2f5' }}>
-          <Outlet />
+
+        {/* 内容区 */}
+        <Content
+          style={{
+            padding: 24,
+            background: '#f5f6fa',
+            minHeight: 'calc(100vh - 56px)',
+          }}
+        >
+          <div className="fade-in">
+            <Outlet />
+          </div>
         </Content>
       </Layout>
     </Layout>

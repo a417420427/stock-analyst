@@ -121,17 +121,17 @@ export default function Dashboard() {
       {/* 统计卡片 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={8}>
-          <Card>
+          <Card className="stat-card">
             <Statistic title="自选股数量" value={stats.stocks} prefix={<StarIcon />} />
           </Card>
         </Col>
         <Col xs={24} sm={8}>
-          <Card>
+          <Card className="stat-card">
             <Statistic title="活跃策略" value={stats.strategies} prefix={<ThunderIcon />} />
           </Card>
         </Col>
         <Col xs={24} sm={8}>
-          <Card>
+          <Card className="stat-card">
             <Statistic title="今日触发" value={stats.triggers} prefix={<SwapIcon />} />
           </Card>
         </Col>

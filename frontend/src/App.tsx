@@ -15,8 +15,22 @@ function App() {
       locale={zhCN}
       theme={{
         token: {
-          colorPrimary: '#1677ff',
-          borderRadius: 6,
+          colorPrimary: '#6366f1',
+          colorSuccess: '#00a854',
+          colorError: '#e34d4d',
+          colorWarning: '#fa8c16',
+          borderRadius: 8,
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif",
+          fontSize: 13,
+        },
+        components: {
+          Card: {
+            paddingLG: 20,
+          },
+          Table: {
+            headerBg: '#fafafa',
+            headerBorderRadius: 8,
+          },
         },
       }}
     >

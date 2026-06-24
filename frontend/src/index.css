@@ -2,17 +2,205 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── 全局样式 ────────────────────────────── */
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: #f0f2f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #f5f6fa;
+  color: #1d2129;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* 自定义滚动条 */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #d9d9d9; border-radius: 3px; }
+/* ─── 涨跌色 ────────────────────────────── */
 
-/* 涨跌色 */
-.price-up { color: #ef4444; }
-.price-down { color: #22c55e; }
+.price-up {
+  color: #e34d4d;
+}
+.price-down {
+  color: #00a854;
+}
+.bg-up {
+  background: #fff2f0;
+}
+.bg-down {
+  background: #f0fff5;
+}
+
+/* ─── 卡片质感 ────────────────────────────── */
+
+.card-gradient-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-radius: 12px 12px 0 0 !important;
+  padding: 16px 20px;
+}
+.card-gradient-header .ant-card-head-title {
+  color: #fff;
+}
+.card-gradient-header .ant-card-extra {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ─── 股票行情表 ────────────────────────────── */
+
+.stock-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.stock-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #86909c;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa;
+}
+.stock-table td {
+  padding: 10px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid #f5f5f5;
+}
+.stock-table tr:hover td {
+  background: #f8f9ff;
+}
+
+/* ─── 技术指标值 ────────────────────────────── */
+
+.indicator-value {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.indicator-label {
+  font-size: 12px;
+  color: #86909c;
+  margin-bottom: 2px;
+}
+
+/* ─── 统计卡片 ────────────────────────────── */
+
+.stat-card {
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+.stat-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+/* ─── 侧边栏 ────────────────────────────── */
+
+.sidebar-logo {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ─── 自定义滚动条 ────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+
+/* ─── Ant Design 覆盖 ────────────────────────────── */
+
+.ant-card {
+  border-radius: 12px !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+.ant-card-head {
+  border-bottom: 1px solid #f0f0f0 !important;
+  min-height: 48px !important;
+  padding: 0 20px !important;
+}
+.ant-card-head-title {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+.ant-card-body {
+  padding: 16px 20px !important;
+}
+.ant-table {
+  border-radius: 12px !important;
+}
+.ant-table-thead > tr > th {
+  background: #fafafa !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  color: #86909c !important;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 10px 14px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+}
+.ant-table-tbody > tr > td {
+  padding: 10px 14px !important;
+  font-size: 13px !important;
+}
+.ant-table-tbody > tr:hover > td {
+  background: #f8f9ff !important;
+}
+.ant-statistic-title {
+  font-size: 12px !important;
+  color: #86909c !important;
+  font-weight: 500 !important;
+}
+.ant-statistic-content {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+}
+.ant-tag {
+  border-radius: 4px !important;
+  font-size: 11px !important;
+  padding: 2px 8px !important;
+}
+.ant-btn {
+  border-radius: 8px !important;
+  font-size: 13px !important;
+}
+.ant-tabs-tab {
+  font-size: 13px !important;
+  padding: 8px 16px !important;
+}
+.ant-tabs-tab-active {
+  font-weight: 600 !important;
+}
+
+/* ─── 动画 ────────────────────────────── */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}

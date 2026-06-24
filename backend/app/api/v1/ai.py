@@ -40,7 +40,7 @@ async def nl_query(
     result = await db.execute(select(Stock).limit(10))
     stocks = list(result.scalars().all())
 
-    answer = await ai_svc.nl_query(query, stocks)
+    answer = await ai_svc.nl_query(query, stocks, db_session=db)
     return {"query": query, "answer": answer}
 
 
