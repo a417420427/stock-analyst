@@ -1,4 +1,5 @@
-import { Layout, Menu, Space } from 'antd';
+import { Layout, Menu, Space, Input, AutoComplete } from 'antd';
+import { useState, useEffect } from 'react';
 import {
   DashboardOutlined,
   StarOutlined,
@@ -8,6 +9,8 @@ import {
   RobotOutlined,
   WalletOutlined,
   ApartmentOutlined,
+  FundOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import TradingCalendar from './TradingCalendar';
@@ -22,11 +25,34 @@ const menuItems = [
   { key: '/portfolio', icon: <WalletOutlined />, label: '模拟仓位' },
   { key: '/ai', icon: <RobotOutlined />, label: 'AI 设置' },
   { key: '/sectors', icon: <ApartmentOutlined />, label: '行业板块' },
+  { key: '/indices', icon: <FundOutlined />, label: '大盘指数' },
 ];
 
 export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchVal, setSearchVal] = useState('');
+  const [searchOptions, setSearchOptions] = useState<{ value: string; label: string }[]>([]);
+
+  useEffect(() => {
+    if (!searchVal.trim() || searchVal.length < 1) {
+      setSearchOptions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/v1/market/stocks/search?q=' + encodeURIComponent(searchVal.trim()));
+        const data = await res.json();
+        setSearchOptions(
+          (data || []).slice(0, 8).map((s: any) => ({
+            value: String(s.id) + ':' + s.symbol,
+            label: `${s.name} (${s.symbol}.${s.market})`,
+          }))
+        );
+      } catch {}
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchVal]);
 
   const selectedKey = '/' + location.pathname.split('/')[1];
   const selectedKeyFinal = menuItems.find(i => i.key === selectedKey) ? selectedKey : '/';
@@ -79,8 +105,26 @@ export default function AppLayout() {
             zIndex: 100,
           }}
         >
-          <div style={{ fontSize: 16, fontWeight: 600, color: '#1d2129' }}>
-            {menuItems.find(i => i.key === selectedKeyFinal)?.label || '仪表盘'}
+          {/* 全局搜索框 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, maxWidth: 420 }}>
+            <AutoComplete
+              value={searchVal}
+              onChange={setSearchVal}
+              onSelect={(val) => {
+                // val 格式 "{id}:{symbol}"
+                const id = val.split(':')[0];
+                if (id) navigate(`/analysis/${id}`);
+                setSearchVal('');
+              }}
+              options={searchOptions}
+              style={{ width: '100%' }}
+            >
+              <Input
+                prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+                placeholder="搜索股票（代码/名称）"
+                style={{ borderRadius: 20, background: '#f5f5f5', border: 'none' }}
+              />
+            </AutoComplete>
           </div>
           <Space>
             <TradingCalendar />

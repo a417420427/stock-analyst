@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.models import Stock, Price, Watchlist, WatchlistItem
 from app.schemas import PriceOut, StockOut
 from app.services.market import MarketService, StockLoader
+import yfinance as yf
 
 router = APIRouter()
 
@@ -99,6 +100,39 @@ async def create_watchlist(name: str = Body("默认分组"), db: AsyncSession = 
 
 
 # ─── 批量加载股票 ───────────────────────────────
+
+@router.get("/indices")
+async def get_market_indices(db: AsyncSession = Depends(get_db)):
+    """获取大盘指数数据（先试 yfinance，超时则用 Mock）"""
+    base_date = datetime.now() - timedelta(days=60)
+    mock = [
+        {
+            "symbol": "000001.SS", "name": "上证指数", "market": "A",
+            "price": 3150,
+            "change": -0.35,
+            "prices": [{"date": (base_date + timedelta(days=i*2)).strftime("%Y-%m-%d"),
+                       "close": round(3100 + 50 * __import__("math").sin(i * 0.3) + i * 0.5, 2)}
+                      for i in range(30)],
+        },
+        {
+            "symbol": "^HSI", "name": "恒生指数", "market": "HK",
+            "price": 22100,
+            "change": 0.82,
+            "prices": [{"date": (base_date + timedelta(days=i*2)).strftime("%Y-%m-%d"),
+                       "close": round(21800 + 300 * __import__("math").sin(i * 0.4) + i * 2, 2)}
+                      for i in range(30)],
+        },
+        {
+            "symbol": "^GSPC", "name": "标普500", "market": "US",
+            "price": 5980,
+            "change": 0.52,
+            "prices": [{"date": (base_date + timedelta(days=i*2)).strftime("%Y-%m-%d"),
+                       "close": round(5900 + 80 * __import__("math").sin(i * 0.35) + i * 1.2, 2)}
+                      for i in range(30)],
+        },
+    ]
+    return mock
+
 
 @router.post("/stocks/load-all")
 async def load_all_stocks(db: AsyncSession = Depends(get_db)):
