@@ -102,6 +102,7 @@ export default function PortfolioPage() {
 
   // 定时 AI 选股配置
   const [autoPickEnabled, setAutoPickEnabled] = useState(false);
+  const [autoPickModal, setAutoPickModal] = useState(false);
   const [autoPickPrompt, setAutoPickPrompt] = useState('明日涨幅最高的5只');
   const [autoPickTopN, setAutoPickTopN] = useState(5);
   const [autoPickBalance, setAutoPickBalance] = useState(100000);
@@ -119,8 +120,9 @@ export default function PortfolioPage() {
   }, []);
 
   const loadAutoPickConfig = () => {
+    const key = `auto-pick-config-${activeTab}`;
     try {
-      const saved = localStorage.getItem('auto-pick-config');
+      const saved = localStorage.getItem(key);
       if (saved) {
         const cfg = JSON.parse(saved);
         setAutoPickEnabled(cfg.enabled || false);
@@ -128,6 +130,13 @@ export default function PortfolioPage() {
         setAutoPickTopN(cfg.top_n || 5);
         setAutoPickBalance(cfg.balance || 100000);
         setAutoBuyEnabled(cfg.auto_buy || false);
+      } else {
+        // 默认：关闭
+        setAutoPickEnabled(false);
+        setAutoPickPrompt('明日涨幅最高的5只');
+        setAutoPickTopN(5);
+        setAutoPickBalance(100000);
+        setAutoBuyEnabled(false);
       }
     } catch { /* ignore */ }
   };
@@ -271,14 +280,15 @@ export default function PortfolioPage() {
   };
 
   const handleSaveAutoPickConfig = () => {
-    localStorage.setItem('auto-pick-config', JSON.stringify({
+    const key = `auto-pick-config-${activeTab}`;
+    localStorage.setItem(key, JSON.stringify({
       enabled: autoPickEnabled,
       prompt: autoPickPrompt,
       top_n: autoPickTopN,
       balance: autoPickBalance,
       auto_buy: autoBuyEnabled,
     }));
-    message.success('定时选股设置已保存');
+    message.success('该组合的定时选股设置已保存');
   };
 
   const handleAiCreate = async () => {
@@ -461,6 +471,9 @@ export default function PortfolioPage() {
             tabBarExtraContent={
               activeTab !== 'overview' && (
                 <Space>
+                  <Button size="small" icon={<RobotOutlined />} onClick={() => { setAutoPickModal(true); loadAutoPickConfig(); }}>
+                    定时选股
+                  </Button>
                   <Button size="small" icon={<SwapOutlined />} onClick={() => setTradeModal(true)}>
                     交易
                   </Button>
@@ -478,78 +491,6 @@ export default function PortfolioPage() {
             }
           >
             <TabPane tab="📊 总览" key="overview">
-              {/* 定时 AI 选股设置 */}
-              <Card size="small" style={{ marginBottom: 16, background: '#f9f0ff', border: '1px solid #d3adf7' }}>
-                <Row gutter={[16, 16]} align="middle">
-                  <Col xs={24} sm={6}>
-                    <Space>
-                      <Switch checked={autoPickEnabled} onChange={setAutoPickEnabled} />
-                      <span style={{ fontWeight: 600, color: '#531dab' }}>定时 AI 选股</span>
-                    </Space>
-                    <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>每个交易日16:30自动运行</div>
-                  </Col>
-                  {autoPickEnabled && (
-                    <>
-                      <Col xs={24} sm={5}>
-                        <Input
-                          size="small"
-                          value={autoPickPrompt}
-                          onChange={e => setAutoPickPrompt(e.target.value)}
-                          placeholder="选股条件"
-                          style={{ fontSize: 12 }}
-                          addonBefore={<span style={{ fontSize: 11 }}>描述</span>}
-                        />
-                      </Col>
-                      <Col xs={12} sm={3}>
-                        <InputNumber
-                          size="small"
-                          value={autoPickTopN}
-                          onChange={v => setAutoPickTopN(v || 5)}
-                          min={1} max={20}
-                          style={{ width: '100%', fontSize: 12 }}
-                          addonBefore={<span style={{ fontSize: 11 }}>数量</span>}
-                        />
-                      </Col>
-                      <Col xs={12} sm={3}>
-                        <InputNumber
-                          size="small"
-                          value={autoPickBalance}
-                          onChange={v => setAutoPickBalance(v || 100000)}
-                          min={10000} step={50000}
-                          style={{ width: '100%', fontSize: 12 }}
-                          addonBefore={<span style={{ fontSize: 11 }}>资金</span>}
-                          formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                          parser={(v) => v?.replace(/,/g, '') as any}
-                        />
-                      </Col>
-                      <Col xs={12} sm={7}>
-                        <Space>
-                          <Space>
-                            <Switch checked={autoBuyEnabled} onChange={setAutoBuyEnabled} size="small" />
-                            <span style={{ fontSize: 12, color: autoBuyEnabled ? '#531dab' : '#999' }}>自动买入</span>
-                          </Space>
-                          <Button
-                            size="small"
-                            type="primary"
-                            icon={<RobotOutlined />}
-                            loading={aiRunLoading}
-                            onClick={handleAutoPickNow}
-                          >
-                            立即运行
-                          </Button>
-                          <Button
-                            size="small"
-                            onClick={handleSaveAutoPickConfig}
-                          >
-                            保存
-                          </Button>
-                        </Space>
-                      </Col>
-                    </>
-                  )}
-                </Row>
-              </Card>
-
               <Table
                 dataSource={accounts}
                 rowKey="id"
@@ -780,6 +721,77 @@ export default function PortfolioPage() {
               formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={(v) => v?.replace(/,/g, '') as any} />
           </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 定时选股设置弹窗 */}
+      <Modal
+        title={
+          <Space>
+            <RobotOutlined style={{ color: '#722ed1' }} />
+            <span>定时 AI 选股 — {accounts.find(a => String(a.id) === activeTab)?.name || ''}</span>
+          </Space>
+        }
+        open={autoPickModal}
+        onCancel={() => setAutoPickModal(false)}
+        footer={
+          <Space>
+            <Button onClick={() => setAutoPickModal(false)}>关闭</Button>
+            <Button onClick={handleSaveAutoPickConfig}>保存设置</Button>
+            <Button type="primary" icon={<RobotOutlined />} loading={aiRunLoading} onClick={handleAutoPickNow}>
+              立即运行
+            </Button>
+          </Space>
+        }
+        width={520}
+        destroyOnClose
+      >
+        <Form layout="vertical">
+          <div style={{ marginBottom: 16 }}>
+            <Space>
+              <Switch checked={autoPickEnabled} onChange={setAutoPickEnabled} />
+              <span style={{ fontWeight: 600 }}>开启定时选股</span>
+            </Space>
+            <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>开启后每个交易日 16:30 自动运行</div>
+          </div>
+
+          {autoPickEnabled && (
+            <>
+              <Form.Item label="选股描述">
+                <Input.TextArea
+                  value={autoPickPrompt}
+                  onChange={e => setAutoPickPrompt(e.target.value)}
+                  placeholder="例如：明日涨幅最高的5只"
+                  rows={2}
+                />
+                <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+                  AI 会根据此描述从全市场选股
+                </div>
+              </Form.Item>
+
+              <Space style={{ width: '100%' }}>
+                <Form.Item label="选股数量">
+                  <InputNumber value={autoPickTopN} onChange={v => setAutoPickTopN(v || 5)}
+                    min={1} max={20} style={{ width: 120 }} />
+                </Form.Item>
+                <Form.Item label="投入资金(¥)">
+                  <InputNumber value={autoPickBalance} onChange={v => setAutoPickBalance(v || 100000)}
+                    min={10000} step={50000} style={{ width: 160 }}
+                    formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                    parser={(v) => v?.replace(/,/g, '') as any} />
+                </Form.Item>
+              </Space>
+
+              <Divider />
+
+              <Form.Item label="自动买入">
+                <Space>
+                  <Switch checked={autoBuyEnabled} onChange={setAutoBuyEnabled} />
+                  <span>开启后自动创建组合并买入，关闭仅分析不出手</span>
+                </Space>
+              </Form.Item>
+            </>
+          )}
         </Form>
       </Modal>
 
