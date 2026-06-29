@@ -5,7 +5,6 @@ import zhCN from 'antd/locale/zh_CN';
 import AppLayout from './components/common/AppLayout';
 import Dashboard from './pages/Dashboard';
 import StocksPage from './pages/StocksPage';
-import StrategyPage from './pages/StrategyPage';
 import AnalysisPage from './pages/AnalysisPage';
 import AISettingsPage from './pages/AISettingsPage';
 import PortfolioPage from './pages/PortfolioPage';
@@ -60,7 +59,6 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="stocks" element={<StocksPage />} />
             <Route path="analysis/:stockId" element={<AnalysisPage />} />
-            <Route path="strategies" element={<StrategyPage />} />
             <Route path="portfolio" element={<PortfolioPage />} />
             <Route path="sectors" element={<SectorPage />} />
             <Route path="ai" element={<AISettingsPage />} />

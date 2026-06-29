@@ -18,7 +18,6 @@ const { Sider, Content, Header } = Layout;
 const menuItems = [
   { key: '/', icon: <DashboardOutlined />, label: '大盘行情' },
   { key: '/stocks', icon: <SearchOutlined />, label: '全部股票' },
-  { key: '/strategies', icon: <ThunderboltOutlined />, label: '策略引擎' },
   { key: '/portfolio', icon: <WalletOutlined />, label: '模拟交易' },
   { key: '/sectors', icon: <ApartmentOutlined />, label: '行业板块' },
   { key: '/ai', icon: <RobotOutlined />, label: 'AI 设置' },
