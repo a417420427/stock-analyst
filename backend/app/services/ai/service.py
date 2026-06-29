@@ -91,7 +91,8 @@ class AIService:
                     client_kwargs["base_url"] = ai_base
 
                 from openai import AsyncOpenAI
-                client = AsyncOpenAI(**client_kwargs)
+                from httpx import Timeout
+                client = AsyncOpenAI(**client_kwargs, timeout=Timeout(120.0, connect=30.0))
 
                 resp = await client.chat.completions.create(
                     model=ai_model,
@@ -149,7 +150,8 @@ class AIService:
                     client_kwargs["base_url"] = ai_base
 
                 from openai import AsyncOpenAI
-                client = AsyncOpenAI(**client_kwargs)
+                from httpx import Timeout
+                client = AsyncOpenAI(**client_kwargs, timeout=Timeout(120.0, connect=30.0))
 
                 resp = await client.chat.completions.create(
                     model=ai_model,
@@ -176,7 +178,8 @@ class AIService:
 
         try:
             from openai import AsyncOpenAI
-            client = AsyncOpenAI(api_key=settings.openai_api_key)
+            from httpx import Timeout
+            client = AsyncOpenAI(api_key=settings.openai_api_key, timeout=Timeout(120.0, connect=30.0))
 
             resp = await client.chat.completions.create(
                 model=settings.openai_model,
@@ -206,7 +209,8 @@ class AIService:
                 client_kwargs["base_url"] = ai_base
 
             from openai import AsyncOpenAI
-            client = AsyncOpenAI(**client_kwargs)
+            from httpx import Timeout
+            client = AsyncOpenAI(**client_kwargs, timeout=Timeout(120.0, connect=30.0))
 
             resp = await client.chat.completions.create(
                 model=ai_model,
@@ -268,7 +272,8 @@ class AIService:
                 client_kwargs["base_url"] = ai_base
 
             from openai import AsyncOpenAI
-            client = AsyncOpenAI(**client_kwargs)
+            from httpx import Timeout
+            client = AsyncOpenAI(**client_kwargs, timeout=Timeout(120.0, connect=30.0))
 
             resp = await client.chat.completions.create(
                 model=ai_model,
@@ -279,6 +284,7 @@ class AIService:
                 response_format={"type": "json_object"},
                 temperature=0.3,
                 max_tokens=4000,
+                timeout=120,
             )
             result = json.loads(resp.choices[0].message.content)
             return result
@@ -327,7 +333,8 @@ class AIService:
                 client_kwargs["base_url"] = ai_base
 
             from openai import AsyncOpenAI
-            client = AsyncOpenAI(**client_kwargs)
+            from httpx import Timeout
+            client = AsyncOpenAI(**client_kwargs, timeout=Timeout(120.0, connect=30.0))
 
             resp = await client.chat.completions.create(
                 model=ai_model,
