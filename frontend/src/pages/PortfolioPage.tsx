@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Card, Table, Tag, Button, Space, message, Modal, Form, Input, Select,
   InputNumber, Statistic, Row, Col, Tabs, Popconfirm, Descriptions, Divider, Tooltip,
-  Steps, Alert, Spin, Progress,
+  Steps, Alert, Spin, Progress, Switch,
 } from 'antd';
 import {
   PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined,
@@ -100,6 +100,14 @@ export default function PortfolioPage() {
   const [aiStep, setAiStep] = useState<'input' | 'preview' | 'creating' | 'done'>('input');
   const [createdAccount, setCreatedAccount] = useState<any>(null);
 
+  // 定时 AI 选股配置
+  const [autoPickEnabled, setAutoPickEnabled] = useState(false);
+  const [autoPickPrompt, setAutoPickPrompt] = useState('明日涨幅最高的5只');
+  const [autoPickTopN, setAutoPickTopN] = useState(5);
+  const [autoPickBalance, setAutoPickBalance] = useState(100000);
+  const [autoBuyEnabled, setAutoBuyEnabled] = useState(false);
+  const [aiRunLoading, setAiRunLoading] = useState(false);
+
   const [form] = Form.useForm();
   const [tradeForm] = Form.useForm();
   const [fundForm] = Form.useForm();
@@ -107,7 +115,22 @@ export default function PortfolioPage() {
   useEffect(() => {
     loadAccounts();
     loadStocks();
+    loadAutoPickConfig();
   }, []);
+
+  const loadAutoPickConfig = () => {
+    try {
+      const saved = localStorage.getItem('auto-pick-config');
+      if (saved) {
+        const cfg = JSON.parse(saved);
+        setAutoPickEnabled(cfg.enabled || false);
+        setAutoPickPrompt(cfg.prompt || '明日涨幅最高的5只');
+        setAutoPickTopN(cfg.top_n || 5);
+        setAutoPickBalance(cfg.balance || 100000);
+        setAutoBuyEnabled(cfg.auto_buy || false);
+      }
+    } catch { /* ignore */ }
+  };
 
   const loadAccounts = async () => {
     setLoading(true);
@@ -218,6 +241,44 @@ export default function PortfolioPage() {
       setAiStep('input');
     }
     setAiLoading(false);
+  };
+
+  // ── 定时 AI 选股 ──
+  const handleAutoPickNow = async () => {
+    setAiRunLoading(true);
+    try {
+      const res = await api.post('/portfolio/ai-auto-pick', null, {
+        params: {
+          prompt: autoPickPrompt,
+          top_n: autoPickTopN,
+          initial_balance: autoBuyEnabled ? autoPickBalance : 100000,
+        },
+        timeout: 180000,
+      });
+      if (autoBuyEnabled) {
+        message.success(`AI 自动选股完成，组合 "${res.data.account.name}" 已创建并买入`);
+      } else {
+        message.success('AI 分析完成，结果如下');
+      }
+      loadAccounts();
+      setAiResult(res.data);
+      setAiStep('done');
+      setAiModal(true);
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || 'AI 自动选股失败');
+    }
+    setAiRunLoading(false);
+  };
+
+  const handleSaveAutoPickConfig = () => {
+    localStorage.setItem('auto-pick-config', JSON.stringify({
+      enabled: autoPickEnabled,
+      prompt: autoPickPrompt,
+      top_n: autoPickTopN,
+      balance: autoPickBalance,
+      auto_buy: autoBuyEnabled,
+    }));
+    message.success('定时选股设置已保存');
   };
 
   const handleAiCreate = async () => {
@@ -417,6 +478,78 @@ export default function PortfolioPage() {
             }
           >
             <TabPane tab="📊 总览" key="overview">
+              {/* 定时 AI 选股设置 */}
+              <Card size="small" style={{ marginBottom: 16, background: '#f9f0ff', border: '1px solid #d3adf7' }}>
+                <Row gutter={[16, 16]} align="middle">
+                  <Col xs={24} sm={6}>
+                    <Space>
+                      <Switch checked={autoPickEnabled} onChange={setAutoPickEnabled} />
+                      <span style={{ fontWeight: 600, color: '#531dab' }}>定时 AI 选股</span>
+                    </Space>
+                    <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>每个交易日16:30自动运行</div>
+                  </Col>
+                  {autoPickEnabled && (
+                    <>
+                      <Col xs={24} sm={5}>
+                        <Input
+                          size="small"
+                          value={autoPickPrompt}
+                          onChange={e => setAutoPickPrompt(e.target.value)}
+                          placeholder="选股条件"
+                          style={{ fontSize: 12 }}
+                          addonBefore={<span style={{ fontSize: 11 }}>描述</span>}
+                        />
+                      </Col>
+                      <Col xs={12} sm={3}>
+                        <InputNumber
+                          size="small"
+                          value={autoPickTopN}
+                          onChange={v => setAutoPickTopN(v || 5)}
+                          min={1} max={20}
+                          style={{ width: '100%', fontSize: 12 }}
+                          addonBefore={<span style={{ fontSize: 11 }}>数量</span>}
+                        />
+                      </Col>
+                      <Col xs={12} sm={3}>
+                        <InputNumber
+                          size="small"
+                          value={autoPickBalance}
+                          onChange={v => setAutoPickBalance(v || 100000)}
+                          min={10000} step={50000}
+                          style={{ width: '100%', fontSize: 12 }}
+                          addonBefore={<span style={{ fontSize: 11 }}>资金</span>}
+                          formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                          parser={(v) => v?.replace(/,/g, '') as any}
+                        />
+                      </Col>
+                      <Col xs={12} sm={7}>
+                        <Space>
+                          <Space>
+                            <Switch checked={autoBuyEnabled} onChange={setAutoBuyEnabled} size="small" />
+                            <span style={{ fontSize: 12, color: autoBuyEnabled ? '#531dab' : '#999' }}>自动买入</span>
+                          </Space>
+                          <Button
+                            size="small"
+                            type="primary"
+                            icon={<RobotOutlined />}
+                            loading={aiRunLoading}
+                            onClick={handleAutoPickNow}
+                          >
+                            立即运行
+                          </Button>
+                          <Button
+                            size="small"
+                            onClick={handleSaveAutoPickConfig}
+                          >
+                            保存
+                          </Button>
+                        </Space>
+                      </Col>
+                    </>
+                  )}
+                </Row>
+              </Card>
+
               <Table
                 dataSource={accounts}
                 rowKey="id"
