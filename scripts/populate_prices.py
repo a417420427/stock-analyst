@@ -11,7 +11,7 @@ import yfinance as yf
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-DATABASE_URL = "sqlite+aiosqlite:///stock_analyst.db"
+DATABASE_URL = "sqlite+aiosqlite:///root/workspace/stock-analyst/backend/stock_analyst.db"
 engine = create_async_engine(DATABASE_URL, echo=False)
 
 
@@ -69,7 +69,7 @@ async def main():
                 text(f"SELECT id, symbol, market, name FROM stocks WHERE id IN ({','.join(map(str,stock_ids))})")
             )
         else:
-            result = await session.execute(text("SELECT id, symbol, market, name FROM stocks LIMIT 20"))
+            result = await session.execute(text("SELECT id, symbol, market, name FROM stocks LIMIT 300"))
         stocks = result.fetchall()
 
         total = 0
