@@ -207,6 +207,8 @@ async def get_account_detail(account_id: int, db: AsyncSession = Depends(get_db)
             "name": acc.name,
             "strategy_id": acc.strategy_id,
             "strategy_name": strat_name,
+            "is_ai_generated": acc.is_ai_generated,
+            "ai_prompt": acc.ai_prompt,
             "initial_balance": float(acc.initial_balance),
             "available_balance": float(acc.available_balance),
             "frozen_balance": float(acc.frozen_balance),
