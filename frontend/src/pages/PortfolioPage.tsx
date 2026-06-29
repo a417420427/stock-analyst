@@ -129,8 +129,8 @@ export default function PortfolioPage() {
 
   const loadStocks = async () => {
     try {
-      const res = await api.get('/market/stocks/all', { params: { limit: 500 } });
-      setAllStocks(res.data || []);
+      const res = await api.get('/market/stocks/all', { params: { page: 1, page_size: 500 } });
+      setAllStocks(res.data?.items || []);
     } catch { /* ignore */ }
   };
 
