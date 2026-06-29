@@ -178,6 +178,7 @@ class Strategy(Base):
 
     user = relationship("User", back_populates="strategies")
     triggers = relationship("StrategyTrigger", back_populates="strategy", cascade="all, delete-orphan")
+    account = relationship("SimulatedAccount", back_populates="strategy", uselist=False)
 
     __table_args__ = (
         Index("ix_strategy_user_active", "user_id", "is_active"),
@@ -271,13 +272,33 @@ class PushHistory(Base):
 
 # ─── 模拟交易 ────────────────────────────────────────
 
+class SimulatedAccount(Base):
+    """模拟账户 -- 每个账户对应一个策略组合"""
+    __tablename__ = "simulated_accounts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    name = Column(String(64), nullable=False, default="默认组合")
+    strategy_id = Column(Integer, ForeignKey("strategies.id"), nullable=True)
+    initial_balance = Column(DECIMAL(16, 2), nullable=False, default=1000000.00)
+    available_balance = Column(DECIMAL(16, 2), nullable=False, default=1000000.00)
+    frozen_balance = Column(DECIMAL(16, 2), nullable=False, default=0.00)
+    commission_rate = Column(DECIMAL(8, 6), nullable=False, default=0.00015)
+    slippage = Column(DECIMAL(8, 6), nullable=False, default=0.001)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    strategy = relationship("Strategy", back_populates="account")
+
+
 class Financial(Base):
     """季度财务数据"""
     __tablename__ = "financials"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     stock_id = Column(Integer, ForeignKey("stocks.id"), nullable=False, index=True)
-    quarter = Column(String(8), nullable=False)  # 2024Q1
+    quarter = Column(String(8), nullable=False)
     revenue = Column(DECIMAL(20, 4), nullable=True)
     net_profit = Column(DECIMAL(20, 4), nullable=True)
     eps = Column(DECIMAL(12, 4), nullable=True)
@@ -296,12 +317,15 @@ class SimulatedTrade(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    account_id = Column(Integer, ForeignKey("simulated_accounts.id"), nullable=True, index=True)
     stock_id = Column(Integer, ForeignKey("stocks.id"), nullable=False)
     strategy_id = Column(Integer, ForeignKey("strategies.id"), nullable=True)
-    side = Column(String(4), nullable=False)  # buy / sell
+    side = Column(String(4), nullable=False)
     quantity = Column(Integer, nullable=False)
     price = Column(DECIMAL(12, 4), nullable=False)
     total = Column(DECIMAL(16, 2), nullable=False)
+    commission = Column(DECIMAL(12, 4), nullable=False, default=0.00)
+    order_type = Column(String(16), nullable=False, default="market")
     traded_at = Column(DateTime, default=datetime.utcnow)
     note = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
