@@ -1,4 +1,4 @@
-import { Layout, Menu, Space, Input, AutoComplete } from 'antd';
+import { Layout, Menu, Space, Input, AutoComplete, Dropdown, Button } from 'antd';
 import { useState, useEffect } from 'react';
 import {
   DashboardOutlined,
@@ -7,9 +7,11 @@ import {
   RobotOutlined,
   WalletOutlined,
   ApartmentOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import TradingCalendar from './TradingCalendar';
+import { useAuth } from '../../hooks/useAuth';
 
 const { Sider, Content, Header } = Layout;
 
@@ -27,6 +29,7 @@ export default function AppLayout() {
   const location = useLocation();
   const [searchVal, setSearchVal] = useState('');
   const [searchOptions, setSearchOptions] = useState<{ value: string; label: string }[]>([]);
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     if (!searchVal.trim() || searchVal.length < 1) {
@@ -133,6 +136,19 @@ export default function AppLayout() {
                 minute: '2-digit',
               })}
             </span>
+            {user && (
+              <Dropdown menu={{
+                items: [
+                  { key: 'user', label: user.username, disabled: true },
+                  { type: 'divider' },
+                  { key: 'logout', label: '退出登录', danger: true, onClick: () => { logout(); navigate('/auth'); } },
+                ],
+              }}>
+                <Button type="text" icon={<UserOutlined />} style={{ borderRadius: 20 }}>
+                  {user.username}
+                </Button>
+              </Dropdown>
+            )}
           </Space>
         </Header>
 

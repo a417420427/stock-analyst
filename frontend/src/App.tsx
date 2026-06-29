@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import AppLayout from './components/common/AppLayout';
@@ -9,6 +10,19 @@ import AnalysisPage from './pages/AnalysisPage';
 import AISettingsPage from './pages/AISettingsPage';
 import PortfolioPage from './pages/PortfolioPage';
 import SectorPage from './pages/SectorPage';
+import AuthPage from './pages/AuthPage';
+import { useAuth } from './hooks/useAuth';
+
+// 路由守卫 — 未登录跳登录页
+function PrivateRoute({ children }: { children: React.ReactNode }) {
+  const { isLoggedIn } = useAuth();
+  const location = useLocation();
+
+  if (!isLoggedIn()) {
+    return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+  return <>{children}</>;
+}
 
 function App() {
   return (
@@ -37,7 +51,12 @@ function App() {
     >
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<AppLayout />}>
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/" element={
+            <PrivateRoute>
+              <AppLayout />
+            </PrivateRoute>
+          }>
             <Route index element={<Dashboard />} />
             <Route path="stocks" element={<StocksPage />} />
             <Route path="analysis/:stockId" element={<AnalysisPage />} />
