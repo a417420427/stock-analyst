@@ -4,20 +4,23 @@ import {
 } from 'antd';
 import {
   ArrowUpOutlined, ArrowDownOutlined, WalletOutlined,
-  RiseOutlined, FallOutlined, SwapOutlined,
+  RiseOutlined, FallOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import * as echarts from 'echarts';
+import { useRef } from 'react';
 import api from '../services/api';
 import dayjs from 'dayjs';
 
 const { Title } = Typography;
 
-interface IndexData {
-  name: string;
+interface IndexItem {
   symbol: string;
+  name: string;
+  market: string;
   price: number;
   change_pct: number;
-  change: number;
+  prices: { date: string; close: number }[];
 }
 
 interface AccountSummary {
@@ -32,9 +35,10 @@ interface AccountSummary {
 export default function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [indices, setIndices] = useState<IndexData[]>([]);
+  const [indices, setIndices] = useState<IndexItem[]>([]);
   const [accounts, setAccounts] = useState<AccountSummary[]>([]);
   const [now, setNow] = useState(new Date());
+  const chartRefs = useRef<Record<string, HTMLDivElement>>({});
 
   useEffect(() => {
     loadData();
@@ -45,200 +49,140 @@ export default function Dashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // 大盘指数 — 获取主要指数的价格
-      const indexSymbols: { name: string; symbol: string }[] = [
-        { name: '沪深300', symbol: '000300' },
-        { name: '上证指数', symbol: '000001' },
-        { name: '深证成指', symbol: '399001' },
-        { name: '创业板指', symbol: '399006' },
-      ];
-
-      const indexResults = await Promise.allSettled(
-        indexSymbols.map(async (idx) => {
-          try {
-            const res = await api.get('/market/search', { params: { q: idx.name } });
-            return null; // 后端没有指数API，用模拟或ETF代替
-          } catch { return null; }
-        })
-      );
-
-      // 用模拟数据填充指数
-      setIndices([
-        { name: '沪深300', symbol: '000300', price: 4215.67, change_pct: 1.23, change: 51.23 },
-        { name: '上证指数', symbol: '000001', price: 3128.45, change_pct: 0.76, change: 23.56 },
-        { name: '深证成指', symbol: '399001', price: 10432.18, change_pct: -0.34, change: -35.67 },
-        { name: '创业板指', symbol: '399006', price: 2156.89, change_pct: 1.89, change: 40.12 },
+      const [idxRes, accRes] = await Promise.all([
+        api.get('/market/indices'),
+        api.get('/portfolio/accounts'),
       ]);
-
-      // 模拟持仓统计
-      const accRes = await api.get('/portfolio/accounts');
+      setIndices(idxRes.data || []);
       setAccounts(accRes.data || []);
     } catch { /* ignore */ }
     setLoading(false);
   };
 
-  const marketTag = (m: string) => m === 'A' ? 'blue' : m === 'HK' ? 'purple' : 'green';
+  useEffect(() => {
+    if (!loading && indices.length > 0) {
+      indices.forEach((idx, i) => {
+        const el = document.getElementById(`spark-${i}`);
+        if (el && idx.prices?.length > 0) {
+          const chart = echarts.init(el);
+          chart.setOption({
+            grid: { left: 0, right: 0, top: 2, bottom: 2 },
+            xAxis: { show: false },
+            yAxis: { show: false },
+            series: [{
+              type: 'line',
+              data: idx.prices.map(p => p.close),
+              smooth: true,
+              symbol: 'none',
+              lineStyle: { width: 2, color: idx.change_pct >= 0 ? '#ef4444' : '#22c55e' },
+              areaStyle: { color: idx.change_pct >= 0 ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.08)' },
+            }],
+          });
+        }
+      });
+    }
+  }, [loading, indices]);
 
+  const marketTag: Record<string, string> = { A: 'blue', HK: 'purple', US: 'green' };
   const totalAsset = accounts.reduce((s, a) => s + a.total_asset, 0);
   const totalPnl = accounts.reduce((s, a) => s + a.total_pnl, 0);
 
   if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: 80 }}>
-        <Spin size="large" />
-      </div>
-    );
+    return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>;
   }
 
   return (
     <div>
-      {/* 大盘指数 */}
       <Title level={4} style={{ marginBottom: 12, marginTop: 0 }}>
         <span style={{ marginRight: 8 }}>📊</span>大盘行情
         <span style={{ fontSize: 12, color: '#999', fontWeight: 400, marginLeft: 12 }}>
-          更新时间: {now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false, hour: '2-digit', minute: '2-digit' })}
+          {now.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false, hour: '2-digit', minute: '2-digit' })}
         </span>
       </Title>
 
+      {/* 指数卡片 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        {indices.map((idx, i) => (
-          <Col xs={12} sm={6} key={i}>
+        {indices.slice(0, 7).map((idx, i) => (
+          <Col xs={12} sm={8} md={6} lg={4} key={idx.symbol}>
             <Card
               hoverable
               size="small"
               className="stat-card"
               style={{
                 borderLeft: `4px solid ${idx.change_pct >= 0 ? '#ef4444' : '#22c55e'}`,
+                height: 100,
+                position: 'relative',
+                overflow: 'hidden',
               }}
+              bodyStyle={{ padding: '12px 14px' }}
             >
-              <Statistic
-                title={idx.name}
-                value={idx.price}
-                precision={2}
-                prefix={idx.change_pct >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
-                valueStyle={{
-                  fontSize: 22,
-                  color: idx.change_pct >= 0 ? '#ef4444' : '#22c55e',
-                  fontFamily: 'monospace',
-                }}
-                suffix={
-                  <span style={{ fontSize: 14, marginLeft: 4 }}>
-                    {idx.change_pct >= 0 ? '+' : ''}{idx.change_pct}%
-                  </span>
-                }
-              />
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 2 }}>
+                <Tag color={marketTag[idx.market]} style={{ fontSize: 10, marginRight: 4 }}>{idx.market}</Tag>
+                {idx.name}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'monospace', color: '#1d2129' }}>
+                {idx.price > 0 ? idx.price.toLocaleString() : '-'}
+              </div>
+              <div style={{ fontSize: 12, color: idx.change_pct >= 0 ? '#ef4444' : '#22c55e', fontWeight: 600 }}>
+                {idx.change_pct >= 0 ? '+' : ''}{idx.change_pct}%
+              </div>
+              <div id={`spark-${i}`} style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 24 }} />
             </Card>
           </Col>
         ))}
       </Row>
 
-      {/* 市场概况 + 模拟持仓 两列布局 */}
+      {/* 左: 市场概况 + 快捷入口 | 右: 模拟持仓 */}
       <Row gutter={[16, 16]}>
-        {/* 左侧：市场概况 */}
         <Col xs={24} lg={12}>
           <Card title="📈 市场概览" size="small" style={{ marginBottom: 16 }}>
             <Row gutter={[16, 16]}>
               <Col span={12}>
-                <Statistic
-                  title="股票总数"
-                  value={249}
-                  prefix="📦"
-                  valueStyle={{ fontSize: 20 }}
-                />
+                <Statistic title="跟踪指数" value={indices.length} prefix="📊" valueStyle={{ fontSize: 20 }} />
               </Col>
               <Col span={12}>
-                <Statistic
-                  title="策略数"
-                  value={accounts.length}
-                  prefix="⚡"
-                  valueStyle={{ fontSize: 20 }}
-                />
+                <Statistic title="模拟策略" value={accounts.length} prefix="💼" valueStyle={{ fontSize: 20 }} />
               </Col>
-              <Col span={12}>
-                <Statistic
-                  title="A股"
-                  value={88}
-                  prefix="🇨🇳"
-                  valueStyle={{ fontSize: 20 }}
-                />
+              <Col span={8}>
+                <Statistic title="A股" value={88} prefix="🇨🇳" valueStyle={{ fontSize: 20 }} />
               </Col>
-              <Col span={12}>
-                <Statistic
-                  title="港股"
-                  value={111}
-                  prefix="🇭🇰"
-                  valueStyle={{ fontSize: 20 }}
-                />
+              <Col span={8}>
+                <Statistic title="港股" value={111} prefix="🇭🇰" valueStyle={{ fontSize: 20 }} />
               </Col>
-              <Col span={12}>
-                <Statistic
-                  title="美股"
-                  value={50}
-                  prefix="🇺🇸"
-                  valueStyle={{ fontSize: 20 }}
-                />
-              </Col>
-              <Col span={12}>
-                <Statistic
-                  title="数据更新"
-                  value={dayjs().format('HH:mm')}
-                  prefix="🔄"
-                  valueStyle={{ fontSize: 20 }}
-                />
+              <Col span={8}>
+                <Statistic title="美股" value={50} prefix="🇺🇸" valueStyle={{ fontSize: 20 }} />
               </Col>
             </Row>
           </Card>
-
-          {/* 快捷入口 */}
           <Card title="🔗 快捷入口" size="small">
             <Row gutter={[12, 12]}>
               <Col span={8}>
-                <Button block size="large" onClick={() => navigate('/sectors')}>
-                  📂 行业板块
-                </Button>
+                <Button block size="large" onClick={() => navigate('/sectors')}>📂 行业板块</Button>
               </Col>
               <Col span={8}>
-                <Button block size="large" onClick={() => navigate('/stocks')}>
-                  📈 全部股票
-                </Button>
+                <Button block size="large" onClick={() => navigate('/stocks')}>📈 全部股票</Button>
               </Col>
               <Col span={8}>
-                <Button block size="large" onClick={() => navigate('/strategies')}>
-                  ⚡ 策略引擎
-                </Button>
+                <Button block size="large" onClick={() => navigate('/portfolio')}>💼 模拟交易</Button>
               </Col>
             </Row>
           </Card>
         </Col>
 
-        {/* 右侧：模拟持仓快照 */}
         <Col xs={24} lg={12}>
           <Card
-            title={
-              <Space>
-                <WalletOutlined />
-                <span>模拟持仓</span>
-              </Space>
-            }
+            title={<Space><WalletOutlined /><span>模拟持仓</span></Space>}
             size="small"
             extra={<Button size="small" onClick={() => navigate('/portfolio')}>查看全部 →</Button>}
             style={{ marginBottom: 16 }}
           >
             <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
               <Col span={12}>
-                <Statistic
-                  title="总资产"
-                  value={totalAsset}
-                  precision={2}
-                  prefix="¥"
-                  valueStyle={{ fontSize: 20, fontFamily: 'monospace' }}
-                />
+                <Statistic title="总资产" value={totalAsset} precision={2} prefix="¥"
+                  valueStyle={{ fontSize: 20, fontFamily: 'monospace' }} />
               </Col>
               <Col span={12}>
-                <Statistic
-                  title="总盈亏"
-                  value={totalPnl}
-                  precision={2}
+                <Statistic title="总盈亏" value={totalPnl} precision={2}
                   prefix={totalPnl >= 0 ? <RiseOutlined /> : <FallOutlined />}
                   valueStyle={{ color: totalPnl >= 0 ? '#ef4444' : '#22c55e', fontSize: 20, fontFamily: 'monospace' }}
                   suffix={
@@ -249,50 +193,24 @@ export default function Dashboard() {
                 />
               </Col>
             </Row>
-
             {accounts.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 20, color: '#999' }}>
-                还没有模拟账户
-                <br />
-                <Button
-                  type="link"
-                  onClick={() => navigate('/portfolio')}
-                  style={{ marginTop: 8 }}
-                >
-                  去创建 →
-                </Button>
+                还没有模拟账户<br />
+                <Button type="link" onClick={() => navigate('/portfolio')} style={{ marginTop: 8 }}>去创建 →</Button>
               </div>
             ) : (
-              <Table
-                dataSource={accounts}
-                rowKey="id"
-                pagination={false}
-                size="small"
+              <Table dataSource={accounts} rowKey="id" pagination={false} size="small"
                 columns={[
-                  {
-                    title: '组合', key: 'name',
-                    render: (_: any, r: AccountSummary) => (
-                      <a onClick={() => navigate('/portfolio')} style={{ fontWeight: 600 }}>{r.name}</a>
-                    ),
-                  },
-                  {
-                    title: '总资产', dataIndex: 'total_asset',
-                    render: (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2 }),
-                  },
-                  {
-                    title: '盈亏', dataIndex: 'total_pnl',
-                    render: (v: number) => (
-                      <span style={{ color: v >= 0 ? '#ef4444' : '#22c55e', fontWeight: 600 }}>
-                        {v >= 0 ? '+' : ''}{v.toFixed(2)}
-                      </span>
-                    ),
-                  },
-                  {
-                    title: '收益率', dataIndex: 'pnl_pct',
-                    render: (v: number) => (
-                      <Tag color={v >= 0 ? 'red' : 'green'}>{v >= 0 ? '+' : ''}{v}%</Tag>
-                    ),
-                  },
+                  { title: '组合', key: 'name', render: (_: any, r: AccountSummary) => (
+                    <a onClick={() => navigate('/portfolio')} style={{ fontWeight: 600 }}>{r.name}</a>
+                  )},
+                  { title: '总资产', dataIndex: 'total_asset', render: (v: number) => v.toLocaleString(undefined, { minimumFractionDigits: 2 }) },
+                  { title: '盈亏', dataIndex: 'total_pnl', render: (v: number) => (
+                    <span style={{ color: v >= 0 ? '#ef4444' : '#22c55e', fontWeight: 600 }}>{v >= 0 ? '+' : ''}{v.toFixed(2)}</span>
+                  )},
+                  { title: '收益率', dataIndex: 'pnl_pct', render: (v: number) => (
+                    <Tag color={v >= 0 ? 'red' : 'green'}>{v >= 0 ? '+' : ''}{v}%</Tag>
+                  )},
                 ]}
               />
             )}

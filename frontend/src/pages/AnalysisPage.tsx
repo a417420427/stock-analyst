@@ -70,6 +70,9 @@ export default function AnalysisPage() {
   const [aiQuery, setAiQuery] = useState('');
   const [aiAnswer, setAiAnswer] = useState('');
   const [queryLoading, setQueryLoading] = useState(false);
+  // 副图开关
+  const [showMacd, setShowMacd] = useState(true);
+  const [showRsi, setShowRsi] = useState(true);
 
   useEffect(() => {
     if (stockId) {
@@ -453,21 +456,29 @@ export default function AnalysisPage() {
       {/* 技术图表 */}
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={14}>
-          <Card title="K 线图 + 均线 + 成交量">
+          <Card title={<>K 线图 + 均线 + 成交量 <Tag style={{ fontSize: 11 }}>{days}日</Tag></>}>
             <ReactEChartsCore option={klineOption} style={{ height: 420 }} />
           </Card>
         </Col>
         <Col xs={24} lg={10}>
-          <Card title="MACD">
-            {macd ? (
-              <ReactEChartsCore option={macdOption} style={{ height: 300 }} />
-            ) : (
-              <span>暂无数据</span>
-            )}
-          </Card>
-          <Card title="RSI (14)" style={{ marginTop: 16 }}>
-            <ReactEChartsCore option={rsiOption} style={{ height: 300 }} />
-          </Card>
+          <div style={{ marginBottom: 8, display: 'flex', gap: 8 }}>
+            <Button size="small" type={showMacd ? 'primary' : 'default'} onClick={() => setShowMacd(!showMacd)}>MACD</Button>
+            <Button size="small" type={showRsi ? 'primary' : 'default'} onClick={() => setShowRsi(!showRsi)}>RSI</Button>
+          </div>
+          {showMacd && (
+            <Card title="MACD" style={{ marginBottom: showRsi ? 16 : 0 }}>
+              {macd ? (
+                <ReactEChartsCore option={macdOption} style={{ height: 240 }} />
+              ) : (
+                <span>暂无数据</span>
+              )}
+            </Card>
+          )}
+          {showRsi && (
+            <Card title="RSI (14)">
+              <ReactEChartsCore option={rsiOption} style={{ height: 240 }} />
+            </Card>
+          )}
         </Col>
       </Row>
 

@@ -102,36 +102,62 @@ async def create_watchlist(name: str = Body("默认分组"), db: AsyncSession = 
 # ─── 批量加载股票 ───────────────────────────────
 
 @router.get("/indices")
-async def get_market_indices(db: AsyncSession = Depends(get_db)):
-    """获取大盘指数数据（先试 yfinance，超时则用 Mock）"""
-    base_date = datetime.now() - timedelta(days=60)
-    mock = [
-        {
-            "symbol": "000001.SS", "name": "上证指数", "market": "A",
-            "price": 3150,
-            "change": -0.35,
-            "prices": [{"date": (base_date + timedelta(days=i*2)).strftime("%Y-%m-%d"),
-                       "close": round(3100 + 50 * __import__("math").sin(i * 0.3) + i * 0.5, 2)}
-                      for i in range(30)],
-        },
-        {
-            "symbol": "^HSI", "name": "恒生指数", "market": "HK",
-            "price": 22100,
-            "change": 0.82,
-            "prices": [{"date": (base_date + timedelta(days=i*2)).strftime("%Y-%m-%d"),
-                       "close": round(21800 + 300 * __import__("math").sin(i * 0.4) + i * 2, 2)}
-                      for i in range(30)],
-        },
-        {
-            "symbol": "^GSPC", "name": "标普500", "market": "US",
-            "price": 5980,
-            "change": 0.52,
-            "prices": [{"date": (base_date + timedelta(days=i*2)).strftime("%Y-%m-%d"),
-                       "close": round(5900 + 80 * __import__("math").sin(i * 0.35) + i * 1.2, 2)}
-                      for i in range(30)],
-        },
+async def get_market_indices():
+    """获取大盘指数数据（yfinance 实时拉取）"""
+    import yfinance as yf
+    import asyncio
+
+    index_configs = [
+        ("000001.SS", "上证指数", "A"),
+        ("^HSI", "恒生指数", "HK"),
+        ("^GSPC", "标普500", "US"),
+        ("^IXIC", "纳斯达克", "US"),
+        ("^DJI", "道琼斯", "US"),
+        ("399001.SZ", "深证成指", "A"),
+        ("399006.SZ", "创业板指", "A"),
     ]
-    return mock
+
+    results = []
+    for symbol, name, market in index_configs:
+        try:
+            ticker = yf.Ticker(symbol)
+            hist = ticker.history(period="5d")
+            info = ticker.info or {}
+
+            if hist is not None and not hist.empty:
+                closes = hist['Close'].tolist()
+                dates = [str(d.date()) for d in hist.index]
+                latest = closes[-1]
+                prev = closes[-2] if len(closes) > 1 else latest
+                change_pct = round((latest - prev) / prev * 100, 2) if prev else 0
+
+                prices = [{"date": dates[i], "close": round(closes[i], 2)} for i in range(len(dates))]
+            else:
+                latest = info.get("regularMarketPrice") or info.get("previousClose") or 0
+                prev = info.get("previousClose") or latest
+                change_pct = round((latest - prev) / prev * 100, 2) if prev else 0
+                prices = []
+
+            results.append({
+                "symbol": symbol,
+                "name": name,
+                "market": market,
+                "price": round(float(latest), 2) if latest else 0,
+                "change_pct": change_pct,
+                "prices": prices[-60:],
+            })
+        except Exception as e:
+            results.append({
+                "symbol": symbol,
+                "name": name,
+                "market": market,
+                "price": 0,
+                "change_pct": 0,
+                "prices": [],
+                "error": str(e),
+            })
+
+    return results
 
 
 @router.post("/stocks/load-all")
