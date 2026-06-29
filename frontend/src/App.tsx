@@ -3,14 +3,12 @@ import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import AppLayout from './components/common/AppLayout';
 import Dashboard from './pages/Dashboard';
-import WatchlistPage from './pages/WatchlistPage';
+import StocksPage from './pages/StocksPage';
 import StrategyPage from './pages/StrategyPage';
 import AnalysisPage from './pages/AnalysisPage';
-import PushSettingsPage from './pages/PushSettingsPage';
 import AISettingsPage from './pages/AISettingsPage';
 import PortfolioPage from './pages/PortfolioPage';
 import SectorPage from './pages/SectorPage';
-import IndicesPage from './pages/IndicesPage';
 
 function App() {
   return (
@@ -41,14 +39,12 @@ function App() {
         <Routes>
           <Route path="/" element={<AppLayout />}>
             <Route index element={<Dashboard />} />
-            <Route path="watchlist" element={<WatchlistPage />} />
+            <Route path="stocks" element={<StocksPage />} />
             <Route path="analysis/:stockId" element={<AnalysisPage />} />
             <Route path="strategies" element={<StrategyPage />} />
-            <Route path="push" element={<PushSettingsPage />} />
-            <Route path="ai" element={<AISettingsPage />} />
             <Route path="portfolio" element={<PortfolioPage />} />
             <Route path="sectors" element={<SectorPage />} />
-            <Route path="indices" element={<IndicesPage />} />
+            <Route path="ai" element={<AISettingsPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -2,15 +2,11 @@ import { Layout, Menu, Space, Input, AutoComplete } from 'antd';
 import { useState, useEffect } from 'react';
 import {
   DashboardOutlined,
-  StarOutlined,
   ThunderboltOutlined,
-  NotificationOutlined,
-  BarChartOutlined,
+  SearchOutlined,
   RobotOutlined,
   WalletOutlined,
   ApartmentOutlined,
-  FundOutlined,
-  SearchOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import TradingCalendar from './TradingCalendar';
@@ -18,14 +14,12 @@ import TradingCalendar from './TradingCalendar';
 const { Sider, Content, Header } = Layout;
 
 const menuItems = [
-  { key: '/', icon: <DashboardOutlined />, label: '仪表盘' },
-  { key: '/watchlist', icon: <StarOutlined />, label: '自选股' },
+  { key: '/', icon: <DashboardOutlined />, label: '大盘行情' },
+  { key: '/stocks', icon: <SearchOutlined />, label: '全部股票' },
   { key: '/strategies', icon: <ThunderboltOutlined />, label: '策略引擎' },
-  { key: '/push', icon: <NotificationOutlined />, label: '推送设置' },
-  { key: '/portfolio', icon: <WalletOutlined />, label: '模拟仓位' },
-  { key: '/ai', icon: <RobotOutlined />, label: 'AI 设置' },
+  { key: '/portfolio', icon: <WalletOutlined />, label: '模拟交易' },
   { key: '/sectors', icon: <ApartmentOutlined />, label: '行业板块' },
-  { key: '/indices', icon: <FundOutlined />, label: '大盘指数' },
+  { key: '/ai', icon: <RobotOutlined />, label: 'AI 设置' },
 ];
 
 export default function AppLayout() {
