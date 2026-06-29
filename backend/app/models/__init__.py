@@ -286,6 +286,8 @@ class SimulatedAccount(Base):
     commission_rate = Column(DECIMAL(8, 6), nullable=False, default=0.00015)
     slippage = Column(DECIMAL(8, 6), nullable=False, default=0.001)
     is_active = Column(Boolean, default=True)
+    is_ai_generated = Column(Boolean, default=False)  # AI 选股创建
+    ai_prompt = Column(Text, nullable=True)  # AI 选股时的用户描述
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

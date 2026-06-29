@@ -111,6 +111,8 @@ async def list_accounts(db: AsyncSession = Depends(get_db)):
             "total_pnl": float(total_pnl),
             "pnl_pct": round(pnl_pct, 2),
             "position_count": sum(1 for p in positions.values() if p["qty"] > 0),
+            "is_ai_generated": acc.is_ai_generated,
+            "ai_prompt": acc.ai_prompt,
             "commission_rate": float(acc.commission_rate),
             "created_at": acc.created_at.isoformat() if acc.created_at else None,
         })
@@ -482,6 +484,8 @@ async def ai_create_portfolio(
         name=name,
         initial_balance=Decimal(str(initial_balance)),
         available_balance=Decimal(str(initial_balance)),
+        is_ai_generated=True,
+        ai_prompt=prompt,
     )
     db.add(account)
     await db.flush()

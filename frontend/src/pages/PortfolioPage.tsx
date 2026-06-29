@@ -29,6 +29,8 @@ interface Account {
   pnl_pct: number;
   position_count: number;
   commission_rate: number;
+  is_ai_generated: boolean | null;
+  ai_prompt: string | null;
 }
 
 interface Position {
@@ -425,8 +427,9 @@ export default function PortfolioPage() {
                     title: '组合名称', key: 'name',
                     render: (_: any, r: Account) => (
                       <Space>
-                        <WalletOutlined />
+                        {r.is_ai_generated ? <RobotOutlined style={{ color: '#722ed1' }} /> : <WalletOutlined />}
                         <a onClick={() => onTabChange(String(r.id))} style={{ fontWeight: 600 }}>{r.name}</a>
+                        {r.is_ai_generated && <Tag color="purple" style={{ fontSize: 10 }}>AI</Tag>}
                         {r.strategy_name && <Tag style={{ fontSize: 11 }}>{r.strategy_name}</Tag>}
                       </Space>
                     ),
@@ -467,6 +470,18 @@ export default function PortfolioPage() {
             {/* 单个账户详情 */}
             {selectedAccount && (
               <TabPane tab={selectedAccount.account.name} key={String(selectedAccount.account.id)}>
+                {/* AI 选股描述 */}
+                {selectedAccount.account.ai_prompt && (
+                  <Card size="small" style={{ background: '#f9f0ff', border: '1px solid #d3adf7', marginBottom: 16 }}>
+                    <Space>
+                      <RobotOutlined style={{ color: '#722ed1' }} />
+                      <span style={{ color: '#531dab', fontSize: 12 }}>
+                        AI 选股: "{selectedAccount.account.ai_prompt}"
+                      </span>
+                    </Space>
+                  </Card>
+                )}
+
                 {/* 账户统计 */}
                 <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
                   <Col xs={12} sm={6}>
