@@ -67,3 +67,26 @@ async def generate_digest(db: AsyncSession = Depends(get_db)):
 
     digest = await ai_svc.generate_digest(stocks_data)
     return {"digest": digest}
+
+
+@router.post("/predict/{stock_id}")
+async def ai_predict_stock(stock_id: int, db: AsyncSession = Depends(get_db)):
+    """AI 个股涨跌预测"""
+    stock = await db.get(Stock, stock_id)
+    if not stock:
+        return {"error": "股票不存在"}
+
+    result = await db.execute(
+        select(Price).where(Price.stock_id == stock_id).order_by(Price.date.desc()).limit(90)
+    )
+    prices = list(result.scalars().all())
+    prices.reverse()
+
+    if not prices:
+        return {"error": "暂无价格数据"}
+
+    prediction = await ai_svc.ai_predict_stock(stock, prices, db_session=db)
+    return {
+        "stock": {"id": stock.id, "symbol": stock.symbol, "name": stock.name, "market": stock.market},
+        "prediction": prediction,
+    }

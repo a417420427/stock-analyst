@@ -414,3 +414,171 @@ async def withdraw(
         "message": f"提现 ¥{amount:.2f} 成功",
         "available_balance": float(acc.available_balance),
     }
+
+
+# ─── AI 选股 ─────────────────────────────────────
+
+@router.post("/ai-generate")
+async def ai_generate_portfolio(
+    prompt: str = Query(..., description="选股需求描述"),
+    initial_balance: float = Query(1000000.0, ge=10000),
+    db: AsyncSession = Depends(get_db),
+):
+    """AI 选股 — 生成投资组合建议"""
+    from app.services.ai import AIService
+
+    # 获取全部股票数据
+    result = await db.execute(
+        select(Stock).order_by(Stock.id)
+    )
+    stocks = list(result.scalars().all())
+
+    ai_svc = AIService()
+    suggestion = await ai_svc.ai_select_portfolio(prompt, stocks, db_session=db)
+
+    if "error" in suggestion:
+        raise HTTPException(400, suggestion["error"])
+
+    return {
+        "prompt": prompt,
+        "suggestion": {
+            "name": suggestion.get("name", "AI 选股组合"),
+            "description": suggestion.get("description", ""),
+            "stocks": suggestion.get("stocks", []),
+            "estimated_return": suggestion.get("estimated_return", ""),
+            "risk_level": suggestion.get("risk_level", "medium"),
+            "advice": suggestion.get("advice", ""),
+        },
+        "initial_balance": initial_balance,
+    }
+
+
+@router.post("/ai-create")
+async def ai_create_portfolio(
+    prompt: str = Query(..., description="选股需求描述"),
+    initial_balance: float = Query(1000000.0, ge=10000),
+    db: AsyncSession = Depends(get_db),
+):
+    """AI 选股并直接创建模拟账户+买入"""
+    from app.services.ai import AIService
+
+    result = await db.execute(select(Stock).order_by(Stock.id))
+    stocks = list(result.scalars().all())
+
+    ai_svc = AIService()
+    suggestion = await ai_svc.ai_select_portfolio(prompt, stocks, db_session=db)
+
+    if "error" in suggestion:
+        raise HTTPException(400, suggestion["error"])
+
+    stock_list = suggestion.get("stocks", [])
+    if not stock_list:
+        raise HTTPException(400, "AI 未选出任何股票")
+
+    name = suggestion.get("name", "AI 选股组合")[:64]
+
+    # 创建模拟账户
+    account = SimulatedAccount(
+        name=name,
+        initial_balance=Decimal(str(initial_balance)),
+        available_balance=Decimal(str(initial_balance)),
+    )
+    db.add(account)
+    await db.flush()
+
+    # 自动买入
+    trades_created = []
+    remaining = Decimal(str(initial_balance))
+    sorted_stocks = sorted(stock_list, key=lambda x: x.get("weight", 0), reverse=True)
+
+    for i, item in enumerate(sorted_stocks):
+        stock_id = item.get("stock_id")
+        weight = item.get("weight", 0)
+        if not stock_id or weight <= 0:
+            continue
+
+        stock = await db.get(Stock, stock_id)
+        if not stock:
+            continue
+
+        # 获取最新价
+        price_result = await db.execute(
+            select(Price).where(Price.stock_id == stock_id).order_by(Price.date.desc()).limit(1)
+        )
+        latest = price_result.scalar_one_or_none()
+        if not latest:
+            continue
+
+        current_price = float(latest.close)
+        slip = float(account.slippage)
+        exec_price = current_price * (1 + slip)
+
+        # 计算买入数量
+        allocated = float(initial_balance) * weight
+        quantity = max(1, int(allocated / exec_price / 100) * 100)  # 取整手
+        
+        if quantity <= 0:
+            continue
+
+        trade_total = round(exec_price * quantity, 2)
+        commission_rate = float(account.commission_rate)
+        commission = round(trade_total * commission_rate, 2)
+        total_cost = round(trade_total + commission, 2)
+
+        if float(account.available_balance) < total_cost:
+            # 如果是最后一只，用剩余资金
+            if i == len(sorted_stocks) - 1:
+                available = float(account.available_balance)
+                quantity = max(1, int(available / exec_price / 100) * 100)
+                if quantity <= 0:
+                    continue
+                trade_total = round(exec_price * quantity, 2)
+                commission = round(trade_total * commission_rate, 2)
+                total_cost = round(trade_total + commission, 2)
+            else:
+                continue
+
+        trade = SimulatedTrade(
+            account_id=account.id,
+            stock_id=stock_id,
+            side="buy",
+            quantity=quantity,
+            price=Decimal(str(current_price)),
+            total=Decimal(str(trade_total)),
+            commission=Decimal(str(commission)),
+            order_type="market",
+        )
+        db.add(trade)
+        account.available_balance -= Decimal(str(total_cost))
+        await db.flush()
+
+        trades_created.append({
+            "stock_id": stock_id,
+            "symbol": stock.symbol,
+            "name": stock.name,
+            "market": stock.market,
+            "quantity": quantity,
+            "price": current_price,
+            "exec_price": round(exec_price, 2),
+            "weight": weight,
+            "total": trade_total,
+            "commission": commission,
+        })
+
+    return {
+        "account": {
+            "id": account.id,
+            "name": account.name,
+            "initial_balance": initial_balance,
+            "available_balance": float(account.available_balance),
+        },
+        "suggestion": {
+            "name": name,
+            "description": suggestion.get("description", ""),
+            "estimated_return": suggestion.get("estimated_return", ""),
+            "risk_level": suggestion.get("risk_level", "medium"),
+            "advice": suggestion.get("advice", ""),
+        },
+        "trades": trades_created,
+        "total_invested": sum(t["total"] for t in trades_created),
+    }

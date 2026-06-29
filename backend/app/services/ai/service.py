@@ -222,3 +222,125 @@ class AIService:
         except Exception as e:
             logger.error(f"AI judge failed: {e}")
             return False, f"AI判断失败: {e}"
+
+    async def ai_select_portfolio(self, prompt: str, all_stocks: list[Stock], db_session=None) -> dict:
+        """AI 选股 — 根据用户描述生成投资组合"""
+        ai_key, ai_model, ai_base = await self._load_ai_config(db_session)
+        if not ai_key:
+            return {"error": "未配置 AI API Key，请在 AI 设置中配置"}
+
+        # 构建全市场股票摘要
+        stock_lines = []
+        for s in all_stocks:
+            line = f"{s.id}|{s.symbol}|{s.market}|{s.name}|{s.sector or ''}|{s.industry or ''}|PE:{s.pe_ttm or 'N/A'}|PB:{s.pb or 'N/A'}|流通{float(s.market_cap)/1e8 if s.market_cap else 'N/A'}亿"
+            stock_lines.append(line)
+
+        stock_context = "\n".join(stock_lines)
+
+        system_prompt = """你是一个专业的投资组合策略师。根据用户的需求，从提供的股票池中选出合适的股票构建投资组合。
+
+必须严格以 JSON 格式返回，格式如下：
+{
+  "name": "组合名称（中文）",
+  "description": "选股逻辑说明",
+  "stocks": [
+    {
+      "stock_id": 数字,
+      "symbol": "代码",
+      "weight": 权重比例(0-1之间, 总和=1),
+      "reason": "选择理由"
+    }
+  ],
+  "estimated_return": "预估收益率范围",
+  "risk_level": "low/medium/high",
+  "advice": "投资建议"
+}
+
+规则：
+- 选择 3-10 只股票为宜
+- 权重总和必须为 1
+- 优先考虑基本面(PE/PB)和技术面
+- 如果没有完全匹配的股票，选择最接近的"""
+
+        try:
+            client_kwargs = {"api_key": ai_key}
+            if ai_base:
+                client_kwargs["base_url"] = ai_base
+
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(**client_kwargs)
+
+            resp = await client.chat.completions.create(
+                model=ai_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"## 用户需求\n{prompt}\n\n## 可用股票列表（共{len(all_stocks)}只）\n{stock_context}\n\n请根据需求选择最合适的股票构建投资组合，以JSON格式返回。"},
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.3,
+                max_tokens=4000,
+            )
+            result = json.loads(resp.choices[0].message.content)
+            return result
+        except Exception as e:
+            logger.error(f"AI select portfolio failed: {e}")
+            return {"error": f"AI 分析失败: {str(e)}"}
+
+    async def ai_predict_stock(self, stock, prices: list[Price], db_session=None) -> dict:
+        """AI 个股预测 — 涨跌预估 + 分析"""
+        ai_key, ai_model, ai_base = await self._load_ai_config(db_session)
+        if not ai_key:
+            return {"error": "未配置 AI API Key"}
+
+        context = self._build_stock_context(stock, prices)
+
+        # 添加基本面信息
+        fundamental_info = f"""
+- PE(TTM): {stock.pe_ttm or 'N/A'}
+- PB: {stock.pb or 'N/A'}
+- 市值: {float(stock.market_cap)/1e8 if stock.market_cap else 'N/A'} 亿
+- 股息率: {stock.dividend_yield or 'N/A'}
+- 营收增长: {stock.revenue_growth or 'N/A'}
+- 利润率: {stock.profit_margin or 'N/A'}
+"""
+
+        system_prompt = """你是一个专业的股票分析预测师。根据提供的股票技术面和基本面数据，给出分析预测。
+
+必须严格以 JSON 格式返回：
+{
+  "direction": "up/down/neutral",
+  "expected_change_pct": 5.5,
+  "timeframe": "1个月/3个月/6个月",
+  "confidence": "high/medium/low",
+  "support_level": 支撑价位,
+  "resistance_level": 阻力价位,
+  "reasons": ["理由1", "理由2"],
+  "risks": ["风险1", "风险2"],
+  "technical_analysis": "技术面分析摘要",
+  "fundamental_analysis": "基本面分析摘要",
+  "summary": "一句话总结"
+}"""
+
+        try:
+            client_kwargs = {"api_key": ai_key}
+            if ai_base:
+                client_kwargs["base_url"] = ai_base
+
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(**client_kwargs)
+
+            resp = await client.chat.completions.create(
+                model=ai_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"## 技术面数据\n{context}\n\n## 基本面数据\n{fundamental_info}\n\n请分析预测该股票未来走势，以JSON格式返回。"},
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.3,
+                max_tokens=3000,
+            )
+            result = json.loads(resp.choices[0].message.content)
+            return result
+        except Exception as e:
+            logger.error(f"AI predict stock failed: {e}")
+            return {"error": f"AI 预测失败: {str(e)}"}

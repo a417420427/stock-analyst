@@ -2,15 +2,18 @@ import { useEffect, useState } from 'react';
 import {
   Card, Table, Tag, Button, Space, message, Modal, Form, Input, Select,
   InputNumber, Statistic, Row, Col, Tabs, Popconfirm, Descriptions, Divider, Tooltip,
+  Steps, Alert, Spin, Progress,
 } from 'antd';
 import {
   PlusOutlined, DeleteOutlined, ArrowUpOutlined, ArrowDownOutlined,
-  WalletOutlined, SwapOutlined, BankOutlined,
+  WalletOutlined, SwapOutlined, BankOutlined, RobotOutlined,
+  ThunderboltOutlined, CheckCircleOutlined, LoadingOutlined,
 } from '@ant-design/icons';
 import api from '../services/api';
 import dayjs from 'dayjs';
 
 const { TabPane } = Tabs;
+const { TextArea } = Input;
 
 interface Account {
   id: number;
@@ -87,6 +90,13 @@ export default function PortfolioPage() {
   const [tradeModal, setTradeModal] = useState(false);
   const [fundModal, setFundModal] = useState(false);
   const [fundAction, setFundAction] = useState<'deposit' | 'withdraw'>('deposit');
+
+  // AI 选股
+  const [aiModal, setAiModal] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<any>(null);
+  const [aiStep, setAiStep] = useState<'input' | 'preview' | 'creating' | 'done'>('input');
+  const [createdAccount, setCreatedAccount] = useState<any>(null);
 
   const [form] = Form.useForm();
   const [tradeForm] = Form.useForm();
@@ -185,6 +195,47 @@ export default function PortfolioPage() {
       setSelectedAccount(null);
       loadAccounts();
     } catch { message.error('重置失败'); }
+  };
+
+  // ── AI 选股 ──
+  const handleAiGenerate = async (values: any) => {
+    setAiLoading(true);
+    setAiResult(null);
+    setAiStep('preview');
+    try {
+      const res = await api.post('/portfolio/ai-generate', null, {
+        params: {
+          prompt: values.prompt,
+          initial_balance: values.initial_balance || 1000000,
+        },
+        timeout: 120000,
+      });
+      setAiResult(res.data);
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || 'AI 分析失败，请检查 AI 设置');
+      setAiStep('input');
+    }
+    setAiLoading(false);
+  };
+
+  const handleAiCreate = async () => {
+    if (!aiResult) return;
+    setAiStep('creating');
+    try {
+      const res = await api.post('/portfolio/ai-create', null, {
+        params: {
+          prompt: aiResult.prompt,
+          initial_balance: aiResult.initial_balance,
+        },
+        timeout: 120000,
+      });
+      setCreatedAccount(res.data);
+      setAiStep('done');
+      loadAccounts();
+    } catch (e: any) {
+      message.error(e.response?.data?.detail || '创建失败');
+      setAiStep('preview');
+    }
   };
 
   // ── Tab切换 ──
@@ -325,9 +376,14 @@ export default function PortfolioPage() {
           </Space>
         }
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModal(true)}>
-            新建组合
-          </Button>
+          <Space>
+            <Button icon={<RobotOutlined />} onClick={() => setAiModal(true)}>
+              AI 选股
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModal(true)}>
+              新建组合
+            </Button>
+          </Space>
         }
       >
         {accounts.length === 0 ? (
@@ -577,6 +633,173 @@ export default function PortfolioPage() {
               parser={(v) => v?.replace(/,/g, '') as any} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* AI 选股弹窗 */}
+      <Modal
+        title={
+          <Space>
+            <RobotOutlined style={{ color: '#722ed1' }} />
+            <span>AI 选股</span>
+            {aiStep === 'preview' && <Tag color="blue">预览</Tag>}
+            {aiStep === 'creating' && <Tag color="processing">创建中</Tag>}
+            {aiStep === 'done' && <Tag color="green">完成</Tag>}
+          </Space>
+        }
+        open={aiModal}
+        onCancel={() => { setAiModal(false); setAiResult(null); setAiStep('input'); setCreatedAccount(null); }}
+        footer={null}
+        width={700}
+        destroyOnClose
+      >
+        {/* Step 1: 输入需求 */}
+        {aiStep === 'input' && (
+          <Form layout="vertical" onFinish={handleAiGenerate}>
+            <div style={{ marginBottom: 16 }}>
+              <Alert
+                type="info"
+                showIcon
+                message="描述你的投资需求，AI 将自动选股并创建模拟组合"
+                description="例如：选5只低PE、高分红的白马股，等权重配置"
+              />
+            </div>
+            <Form.Item name="prompt" label="投资需求描述" rules={[{ required: true, message: '请描述你的投资需求' }]}>
+              <TextArea
+                rows={4}
+                placeholder="例如：低估值白马股组合，PE<15，分红率>3%，5只等权重配置"
+              />
+            </Form.Item>
+            <Form.Item name="initial_balance" label="初始资金(¥)" initialValue={1000000}>
+              <InputNumber min={10000} step={100000} style={{ width: '100%' }}
+                formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={(v) => v?.replace(/,/g, '') as any} />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" icon={<ThunderboltOutlined />} block size="large">
+              🤖 AI 智能选股
+            </Button>
+          </Form>
+        )}
+
+        {/* Step 2: 预览结果 */}
+        {aiStep === 'preview' && (
+          <div>
+            {aiLoading ? (
+              <div style={{ textAlign: 'center', padding: 60 }}>
+                <Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />
+                <div style={{ marginTop: 16, color: '#999' }}>AI 正在分析全市场股票...</div>
+              </div>
+            ) : aiResult ? (
+              <div>
+                <Alert
+                  type="success"
+                  showIcon
+                  message={aiResult.suggestion.name}
+                  description={
+                    <Space direction="vertical">
+                      <div>{aiResult.suggestion.description}</div>
+                      <Space>
+                        <Tag color="blue">风险: {aiResult.suggestion.risk_level === 'low' ? '低' : aiResult.suggestion.risk_level === 'medium' ? '中' : '高'}</Tag>
+                        <Tag color="orange">预估收益: {aiResult.suggestion.estimated_return || '-'}</Tag>
+                        <Tag color="purple">初始资金: ¥{aiResult.initial_balance?.toLocaleString()}</Tag>
+                      </Space>
+                    </Space>
+                  }
+                  style={{ marginBottom: 16 }}
+                />
+
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>📋 选股清单</div>
+                <Table
+                  dataSource={aiResult.suggestion.stocks}
+                  rowKey="stock_id"
+                  pagination={false}
+                  size="small"
+                  columns={[
+                    { title: '#', key: 'idx', width: 40, render: (_: any, __: any, i: number) => i + 1 },
+                    { title: '代码', dataIndex: 'symbol', width: 100 },
+                    { title: '名称', dataIndex: 'name', width: 120 },
+                    {
+                      title: '权重', dataIndex: 'weight', width: 80,
+                      render: (v: number) => <Tag color="blue">{(v * 100).toFixed(0)}%</Tag>,
+                    },
+                    { title: '选股理由', dataIndex: 'reason', render: (v: string) => <div style={{ fontSize: 12, maxWidth: 280 }}>{v}</div> },
+                  ]}
+                  style={{ marginBottom: 16 }}
+                />
+
+                <Divider />
+
+                <Space direction="horizontal" style={{ width: '100%', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ color: '#999', fontSize: 12 }}>投资建议</div>
+                    <div style={{ fontSize: 13 }}>{aiResult.suggestion.advice || '无'}</div>
+                  </div>
+                  <Button type="primary" size="large" onClick={handleAiCreate} icon={<CheckCircleOutlined />}>
+                    ✅ 创建并买入
+                  </Button>
+                </Space>
+              </div>
+            ) : (
+              <Alert type="error" message="分析失败" description="请检查 AI 设置中是否配置了 API Key" />
+            )}
+          </div>
+        )}
+
+        {/* Step 3: 创建中 */}
+        {aiStep === 'creating' && (
+          <div style={{ textAlign: 'center', padding: 60 }}>
+            <Spin indicator={<LoadingOutlined style={{ fontSize: 48 }} spin />} />
+            <div style={{ marginTop: 16, color: '#999' }}>正在创建模拟账户并自动买入...</div>
+          </div>
+        )}
+
+        {/* Step 4: 完成 */}
+        {aiStep === 'done' && createdAccount && (
+          <div>
+            <Alert
+              type="success"
+              showIcon
+              message={`🎉 组合 "${createdAccount.account.name}" 创建成功`}
+              description={
+                <Space direction="vertical">
+                  <div>初始资金: ¥{createdAccount.account.initial_balance?.toLocaleString()}</div>
+                  <div>剩余资金: ¥{createdAccount.account.available_balance?.toLocaleString()}</div>
+                  <div>实际投入: ¥{createdAccount.total_invested?.toLocaleString()}</div>
+                </Space>
+              }
+              style={{ marginBottom: 16 }}
+            />
+
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>📋 买入明细</div>
+            <Table
+              dataSource={createdAccount.trades}
+              rowKey="stock_id"
+              pagination={false}
+              size="small"
+              columns={[
+                { title: '股票', dataIndex: 'name', width: 100 },
+                { title: '数量', dataIndex: 'quantity', width: 80 },
+                { title: '价格', dataIndex: 'exec_price', width: 100, render: (v: number) => v.toFixed(2) },
+                { title: '金额', dataIndex: 'total', width: 120, render: (v: number) => v.toLocaleString() },
+                { title: '手续费', dataIndex: 'commission', width: 100, render: (v: number) => v.toFixed(2) },
+                { title: '占比', dataIndex: 'weight', width: 80, render: (v: number) => `${(v * 100).toFixed(0)}%` },
+              ]}
+              style={{ marginBottom: 16 }}
+            />
+
+            <Divider />
+            <div style={{ color: '#999', fontSize: 12, marginBottom: 12 }}>
+              {createdAccount.suggestion.advice}
+            </div>
+            <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+              <Button onClick={() => { setAiModal(false); setAiStep('input'); setAiResult(null); setCreatedAccount(null); }}>
+                关闭
+              </Button>
+              <Button type="primary" onClick={() => { setAiModal(false); onTabChange(String(createdAccount.account.id)); }}>
+                查看组合
+              </Button>
+            </Space>
+          </div>
+        )}
       </Modal>
     </div>
   );
