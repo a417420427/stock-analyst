@@ -377,7 +377,7 @@ export default function PortfolioPage() {
         }
         extra={
           <Space>
-            <Button icon={<RobotOutlined />} onClick={() => setAiModal(true)}>
+            <Button icon={<RobotOutlined />} onClick={() => { setAiModal(true); setAiResult(null); setAiStep('input'); setCreatedAccount(null); }}>
               AI 选股
             </Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModal(true)}>
