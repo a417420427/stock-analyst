@@ -226,7 +226,7 @@ async def fetch_all_realtime(db: AsyncSession = Depends(get_db)):
 async def list_all_stocks(
     market: Optional[str] = None,
     page: int = Query(1, ge=1),
-    page_size: int = Query(30, ge=10, le=200),
+    page_size: int = Query(30, ge=10, le=500),
     db: AsyncSession = Depends(get_db),
 ):
     """获取所有股票列表（分页，含最新价和涨跌幅）"""
