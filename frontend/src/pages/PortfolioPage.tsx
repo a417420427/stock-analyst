@@ -267,12 +267,10 @@ export default function PortfolioPage() {
       if (autoBuyEnabled) {
         message.success(`AI 自动选股完成，组合 "${res.data.account.name}" 已创建并买入`);
       } else {
-        message.success('AI 分析完成，结果如下');
+        message.success('AI 分析完成');
       }
       loadAccounts();
-      setAiResult(res.data);
-      setAiStep('done');
-      setAiModal(true);
+      setAutoPickModal(false);
     } catch (e: any) {
       message.error(e.response?.data?.detail || 'AI 自动选股失败');
     }
