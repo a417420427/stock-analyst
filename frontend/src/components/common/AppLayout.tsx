@@ -2,12 +2,12 @@ import { Layout, Menu, Space, Input, AutoComplete, Dropdown, Button } from 'antd
 import { useState, useEffect } from 'react';
 import {
   DashboardOutlined,
-  ThunderboltOutlined,
   SearchOutlined,
   RobotOutlined,
   WalletOutlined,
   ApartmentOutlined,
   UserOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import TradingCalendar from './TradingCalendar';
@@ -21,6 +21,7 @@ const menuItems = [
   { key: '/portfolio', icon: <WalletOutlined />, label: '模拟交易' },
   { key: '/sectors', icon: <ApartmentOutlined />, label: '行业板块' },
   { key: '/ai', icon: <RobotOutlined />, label: 'AI 设置' },
+  { key: '/logs', icon: <FileTextOutlined />, label: '操作日志' },
 ];
 
 export default function AppLayout() {

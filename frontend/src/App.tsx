@@ -9,6 +9,7 @@ import AnalysisPage from './pages/AnalysisPage';
 import AISettingsPage from './pages/AISettingsPage';
 import PortfolioPage from './pages/PortfolioPage';
 import SectorPage from './pages/SectorPage';
+import ActivityLogPage from './pages/ActivityLogPage';
 import AuthPage from './pages/AuthPage';
 import { useAuth } from './hooks/useAuth';
 
@@ -62,6 +63,7 @@ function App() {
             <Route path="portfolio" element={<PortfolioPage />} />
             <Route path="sectors" element={<SectorPage />} />
             <Route path="ai" element={<AISettingsPage />} />
+            <Route path="logs" element={<ActivityLogPage />} />
           </Route>
         </Routes>
       </BrowserRouter>

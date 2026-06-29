@@ -20,6 +20,14 @@ COMMISSION_RATES = {
 STAMP_DUTY_A = 0.0005  # A股印花税 万5 (卖出)
 
 
+# ─── 日志辅助 ─────────────────────────────────────
+
+async def _log(db: AsyncSession, action: str, level: str, title: str, detail: dict = None):
+    from app.models import ActivityLog
+    log = ActivityLog(action=action, level=level, title=title, detail=detail)
+    db.add(log)
+
+
 # ─── 账户管理 ─────────────────────────────────────
 
 @router.post("/accounts")
@@ -302,6 +310,12 @@ async def create_trade(
     db.add(trade)
     await db.flush()
 
+    await _log(db, "trade", "success",
+        f'{"买入" if side == "buy" else "卖出"} {stock.name} {quantity}股 @ {price}',
+        {"account_id": account_id, "stock_id": stock_id, "side": side, "quantity": quantity,
+         "price": price, "total": trade_total, "commission": commission, "stamp_duty": stamp_duty}
+    )
+
     return {
         "id": trade.id,
         "account_id": account_id,
@@ -571,6 +585,11 @@ async def ai_create_portfolio(
             "commission": commission,
         })
 
+    await _log(db, "ai_pick", "success",
+    f'AI选股创建组合 "{name}" ({len(trades_created)}只)',
+        {"account_id": account.id, "name": name, "prompt": prompt, "trades": trades_created}
+    )
+
     return {
         "account": {
             "id": account.id,
@@ -693,6 +712,11 @@ async def ai_auto_pick(
             "total": trade_total,
             "commission": commission,
         })
+
+    await _log(db, "ai_pick", "success",
+        f'AI自动选股 "{name}" ({len(trades_created)}只)',
+        {"account_id": account.id, "name": name, "prompt": prompt, "trades": trades_created}
+    )
 
     return {
         "account": {

@@ -333,6 +333,21 @@ class SimulatedTrade(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+# ─── 活动日志 ────────────────────────────────────────
+
+class ActivityLog(Base):
+    """操作日志 — AI选股/交易等"""
+    __tablename__ = "activity_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    action = Column(String(32), nullable=False)  # ai_pick / trade / system
+    level = Column(String(8), nullable=False, default="info")  # info / success / warning / error
+    title = Column(String(128), nullable=True)
+    detail = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 # ─── AI 设置 ──────────────────────────────────────────
 
 class AISettings(Base):
