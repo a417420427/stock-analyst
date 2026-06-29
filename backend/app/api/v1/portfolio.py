@@ -588,3 +588,125 @@ async def ai_create_portfolio(
         "trades": trades_created,
         "total_invested": sum(t["total"] for t in trades_created),
     }
+
+
+# ─── 定时 AI 选股 ─────────────────────────────────
+
+@router.post("/ai-auto-pick")
+async def ai_auto_pick(
+    prompt: str = Query(..., description="选股需求，如：明日涨幅最高的5只"),
+    top_n: int = Query(5, ge=1, le=20),
+    initial_balance: float = Query(100000.0, ge=10000),
+    db: AsyncSession = Depends(get_db),
+):
+    """AI 自动选股 — 预测全市场选出明日最佳 Top N，自动创建组合并买入"""
+    from app.services.ai import AIService
+    from datetime import date
+
+    result = await db.execute(select(Stock).order_by(Stock.id))
+    stocks = list(result.scalars().all())
+
+    ai_svc = AIService()
+    today = date.today().strftime("%m%d")
+    full_prompt = f"{prompt}，最多选{top_n}只"
+    suggestion = await ai_svc.ai_select_portfolio(full_prompt, stocks, db_session=db)
+
+    if "error" in suggestion:
+        raise HTTPException(400, suggestion["error"])
+
+    stock_list = suggestion.get("stocks", [])
+    if not stock_list:
+        raise HTTPException(400, "AI 未选出任何股票")
+
+    name = f"AI自动选股-{today}"
+
+    account = SimulatedAccount(
+        name=name,
+        initial_balance=Decimal(str(initial_balance)),
+        available_balance=Decimal(str(initial_balance)),
+        is_ai_generated=True,
+        ai_prompt=prompt,
+    )
+    db.add(account)
+    await db.flush()
+
+    # 自动买入
+    trades_created = []
+    remaining = Decimal(str(initial_balance))
+    sorted_stocks = sorted(stock_list, key=lambda x: x.get("weight", 0), reverse=True)
+
+    for i, item in enumerate(sorted_stocks):
+        stock_id = item.get("stock_id")
+        weight = item.get("weight", 0)
+        if not stock_id or weight <= 0:
+            continue
+
+        stock = await db.get(Stock, stock_id)
+        if not stock:
+            continue
+
+        price_result = await db.execute(
+            select(Price).where(Price.stock_id == stock_id).order_by(Price.date.desc()).limit(1)
+        )
+        latest = price_result.scalar_one_or_none()
+        if not latest:
+            continue
+
+        current_price = float(latest.close)
+        slip = float(account.slippage)
+        exec_price = current_price * (1 + slip)
+
+        allocated = float(initial_balance) * weight
+        quantity = max(1, int(allocated / exec_price / 100) * 100)
+
+        if quantity <= 0:
+            continue
+
+        trade_total = round(exec_price * quantity, 2)
+        commission_rate = float(account.commission_rate)
+        commission = round(trade_total * commission_rate, 2)
+        total_cost = round(trade_total + commission, 2)
+
+        trade = SimulatedTrade(
+            account_id=account.id,
+            stock_id=stock_id,
+            side="buy",
+            quantity=quantity,
+            price=Decimal(str(current_price)),
+            total=Decimal(str(trade_total)),
+            commission=Decimal(str(commission)),
+            order_type="market",
+        )
+        db.add(trade)
+        account.available_balance -= Decimal(str(total_cost))
+        await db.flush()
+
+        trades_created.append({
+            "stock_id": stock_id,
+            "symbol": stock.symbol,
+            "name": stock.name,
+            "market": stock.market,
+            "quantity": quantity,
+            "price": current_price,
+            "exec_price": round(exec_price, 2),
+            "weight": weight,
+            "total": trade_total,
+            "commission": commission,
+        })
+
+    return {
+        "account": {
+            "id": account.id,
+            "name": account.name,
+            "initial_balance": float(account.initial_balance),
+            "available_balance": float(account.available_balance),
+        },
+        "suggestion": {
+            "name": name,
+            "description": suggestion.get("description", prompt),
+            "estimated_return": suggestion.get("estimated_return", ""),
+            "risk_level": suggestion.get("risk_level", "medium"),
+        },
+        "trades": trades_created,
+        "total_invested": sum(t["total"] for t in trades_created),
+    }
