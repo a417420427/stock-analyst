@@ -1,12 +1,14 @@
 """FastAPI 应用主入口"""
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import traceback
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
+from starlette.staticfiles import StaticFiles
 
 from app.api import api_router
 from app.core.config import settings
@@ -24,7 +26,6 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """应用生命周期"""
     logger.info(f"🚀 {settings.app_name} starting up...")
-    # 同步方式建表（避免 greenlet 依赖）
     sync_engine = create_engine(settings.database_url_sync)
     Base.metadata.create_all(sync_engine)
     sync_engine.dispose()
@@ -41,16 +42,24 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — 允许前端开发服务器
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(api_router)
+
+# 挂载前端静态文件
+frontend_dist = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+if frontend_dist.exists():
+    app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="assets")
+    logger.info(f"✅ 挂载前端静态文件: {frontend_dist}")
+else:
+    logger.warning(f"❌ 前端静态文件不存在: {frontend_dist}")
 
 
 @app.exception_handler(Exception)
@@ -62,6 +71,10 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/")
 async def root():
+    index_path = frontend_dist / "index.html"
+    if index_path.exists():
+        from starlette.responses import HTMLResponse
+        return HTMLResponse(index_path.read_text(encoding="utf-8"), media_type="text/html")
     return {
         "app": settings.app_name,
         "version": "0.1.0",

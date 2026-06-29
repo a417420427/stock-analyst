@@ -144,7 +144,7 @@ export default function WatchlistPage() {
     { title: '市场', dataIndex: 'market', width: 70, render: (m: string) => <Tag color={marketTag[m]}>{m}</Tag> },
     { title: '代码', dataIndex: 'symbol', width: 100 },
     { title: '名称', dataIndex: 'name' },
-    { title: '行业', dataIndex: 'industry', width: 100 },
+    { title: '行业', dataIndex: "sector", width: 100 },
     {
       title: '操作', key: 'action', width: 140,
       render: (_: unknown, r: Stock) => (
@@ -157,7 +157,7 @@ export default function WatchlistPage() {
     { title: '市场', dataIndex: 'market', width: 70, render: (m: string) => <Tag color={marketTag[m]}>{m}</Tag> },
     { title: '代码', dataIndex: 'symbol', width: 100 },
     { title: '名称', dataIndex: 'name' },
-    { title: '行业', dataIndex: 'industry', width: 100 },
+    { title: '行业', dataIndex: "sector", width: 100 },
     {
       title: '基本面', key: 'fundamentals', width: 200,
       render: (_: unknown, r: Stock) => {
@@ -297,7 +297,7 @@ export default function WatchlistPage() {
                     { title: '市场', dataIndex: 'market', width: 70, render: (m: string) => <Tag color={marketTag[m]}>{m}</Tag> },
                     { title: '代码', dataIndex: 'symbol', width: 100 },
                     { title: '名称', dataIndex: 'name' },
-                    { title: '行业', dataIndex: 'industry', width: 100 },
+                    { title: '行业', dataIndex: "sector", width: 100 },
                     {
                       title: '操作', key: 'action', width: 200,
                       render: (_: unknown, r: Stock) => {
