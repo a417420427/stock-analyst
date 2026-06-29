@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  Card, Table, Input, Tag, Space, Spin, Typography, Button, Row, Col, Statistic,
+  Card, Table, Input, Tag, Space, Spin, Typography, Button, Row, Col, Statistic, Select,
 } from 'antd';
 import {
   SearchOutlined, ArrowUpOutlined, ArrowDownOutlined,
@@ -10,7 +10,6 @@ import api from '../services/api';
 import StockDetailModal from '../components/market/StockDetailModal';
 
 const { Title } = Typography;
-
 const marketTag: Record<string, string> = { A: 'blue', HK: 'purple', US: 'green' };
 
 interface StockItem {
@@ -22,42 +21,42 @@ interface StockItem {
   industry: string | null;
   pe_ttm: number | null;
   pb: number | null;
-  latest_price?: number;
-  change_pct?: number;
+  latest_price: number | null;
+  change_pct: number | null;
 }
 
 export default function StocksPage() {
   const [stocks, setStocks] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [marketFilter, setMarketFilter] = useState<string>('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(30);
   const [detailStockId, setDetailStockId] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
   useEffect(() => {
-    loadStocks();
-  }, []);
+    loadStocks(1);
+  }, [marketFilter]);
 
-  const loadStocks = async () => {
+  const loadStocks = async (p: number) => {
     setLoading(true);
+    setPage(p);
     try {
-      const res = await api.get('/market/stocks/all', { params: { limit: 500 } });
-      const list: StockItem[] = res.data || [];
-
-      // 补充最新价和涨跌幅
-      const enriched = await Promise.all(
-        list.map(async (s) => {
-          try {
-            const detailRes = await api.get(`/analysis/stocks/${s.id}/comprehensive`);
-            const d = detailRes.data;
-            return { ...s, latest_price: d.latest_price, change_pct: d.change_pct };
-          } catch {
-            return s;
-          }
-        })
-      );
-      setStocks(enriched);
+      const params: any = { page: p, page_size: pageSize };
+      if (marketFilter) params.market = marketFilter;
+      const res = await api.get('/market/stocks/all', { params });
+      const data = res.data;
+      setStocks(data.items || []);
+      setTotal(data.total || 0);
     } catch { /* ignore */ }
     setLoading(false);
+  };
+
+  const handlePageChange = (p: number, ps: number) => {
+    setPageSize(ps);
+    loadStocks(p);
   };
 
   const openDetail = (id: number) => {
@@ -74,7 +73,7 @@ export default function StocksPage() {
 
   const columns = [
     {
-      title: '代码', dataIndex: 'symbol', width: 100,
+      title: '代码', dataIndex: 'symbol', width: 110,
       render: (v: string, r: StockItem) => (
         <Space>
           <Tag color={marketTag[r.market]} style={{ fontSize: 11 }}>{r.market}</Tag>
@@ -96,8 +95,8 @@ export default function StocksPage() {
       sorter: (a: StockItem, b: StockItem) => (a.latest_price || 0) - (b.latest_price || 0),
     },
     {
-      title: '涨跌幅', dataIndex: 'change_pct', width: 100,
-      render: (v: number) => v !== undefined ? (
+      title: '涨跌幅', dataIndex: 'change_pct', width: 110,
+      render: (v: number) => v !== null && v !== undefined ? (
         <span style={{ color: v >= 0 ? '#ef4444' : '#22c55e', fontWeight: 600, fontFamily: 'monospace' }}>
           {v >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}
           {' '}{v >= 0 ? '+' : ''}{v.toFixed(2)}%
@@ -116,19 +115,17 @@ export default function StocksPage() {
       sorter: (a: StockItem, b: StockItem) => (a.pb || 999) - (b.pb || 999),
     },
     {
-      title: '行业', dataIndex: 'sector', width: 100,
+      title: '行业', dataIndex: 'sector', width: 90,
       render: (v: string | null) => v ? <Tag style={{ fontSize: 11 }}>{v}</Tag> : '-',
-      filters: [...new Set(stocks.filter(s => s.sector).map(s => s.sector as string))].map(v => ({ text: v, value: v })),
-      onFilter: (val: any, r: StockItem) => r.sector === val,
     },
     {
-      title: '操作', key: 'action', width: 100,
+      title: '操作', key: 'action', width: 110,
       render: (_: any, r: StockItem) => (
         <Space>
           <Button type="link" size="small" icon={<RobotOutlined />}
-            onClick={() => openDetail(r.id)}>分析</Button>
+            onClick={() => openDetail(r.id)}>AI</Button>
           <Button type="link" size="small" icon={<FundViewOutlined />}
-            href={`/analysis/${r.id}`}>详情</Button>
+            href={`/analysis/${r.id}`}>分析</Button>
         </Space>
       ),
     },
@@ -139,13 +136,13 @@ export default function StocksPage() {
       <Title level={4} style={{ marginTop: 0, marginBottom: 16 }}>
         <span style={{ marginRight: 8 }}>📈</span>全部股票
         <span style={{ fontSize: 12, color: '#999', fontWeight: 400, marginLeft: 12 }}>
-          {stocks.length} 只
+          共 {total} 只
         </span>
       </Title>
 
       <Card style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={12} md={8}>
+          <Col xs={24} sm={10} md={8}>
             <Input
               size="large"
               prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
@@ -157,7 +154,20 @@ export default function StocksPage() {
             />
           </Col>
           <Col xs={12} sm={6} md={4}>
-            <Statistic title="搜索结果" value={filtered.length} suffix={`/ ${stocks.length}`} />
+            <Select
+              value={marketFilter || 'all'}
+              onChange={v => setMarketFilter(v === 'all' ? '' : v)}
+              style={{ width: '100%' }}
+              options={[
+                { value: 'all', label: '全部市场' },
+                { value: 'A', label: 'A股' },
+                { value: 'HK', label: '港股' },
+                { value: 'US', label: '美股' },
+              ]}
+            />
+          </Col>
+          <Col xs={12} sm={6} md={4}>
+            <Statistic title="当前页" value={filtered.length} suffix={`/ ${total}`} />
           </Col>
         </Row>
       </Card>
@@ -170,7 +180,15 @@ export default function StocksPage() {
             dataSource={filtered}
             columns={columns}
             rowKey="id"
-            pagination={{ pageSize: 30, showSizeChanger: true, showTotal: (t) => `共 ${t} 只` }}
+            pagination={{
+              current: page,
+              pageSize: pageSize,
+              total: total,
+              onChange: handlePageChange,
+              showSizeChanger: true,
+              pageSizeOptions: ['20', '30', '50', '100'],
+              showTotal: (t) => `共 ${t} 只股票`,
+            }}
             size="small"
             scroll={{ x: 800 }}
           />

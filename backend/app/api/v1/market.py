@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Body
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -196,19 +196,57 @@ async def fetch_all_realtime(db: AsyncSession = Depends(get_db)):
     return {"message": "刷新完成", "total_prices": total}
 
 
-@router.get("/stocks/all", response_model=list[StockOut])
+@router.get("/stocks/all")
 async def list_all_stocks(
     market: Optional[str] = None,
-    limit: int = Query(200, ge=1, le=1000),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(30, ge=10, le=200),
     db: AsyncSession = Depends(get_db),
 ):
-    """获取所有股票列表"""
+    """获取所有股票列表（分页，含最新价和涨跌幅）"""
     stmt = select(Stock)
     if market:
         stmt = stmt.where(Stock.market == market)
-    stmt = stmt.limit(limit)
+    stmt = stmt.order_by(Stock.id)
+    
+    # 先算总数
+    count_stmt = select(func.count()).select_from(stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar()
+    
+    # 分页
+    stmt = stmt.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(stmt)
-    return [StockOut.model_validate(s) for s in result.scalars().all()]
+    stocks = list(result.scalars().all())
+    
+    items = []
+    for s in stocks:
+        # 获取最新价格
+        price_result = await db.execute(
+            select(Price).where(Price.stock_id == s.id).order_by(Price.date.desc()).limit(2)
+        )
+        prices = list(price_result.scalars().all())
+        latest_price = float(prices[0].close) if prices else None
+        change_pct = round((float(prices[0].close) - float(prices[1].close)) / float(prices[1].close) * 100, 2) if len(prices) >= 2 else None
+        
+        items.append({
+            "id": s.id,
+            "symbol": s.symbol,
+            "name": s.name,
+            "market": s.market,
+            "sector": s.sector,
+            "industry": s.industry,
+            "pe_ttm": float(s.pe_ttm) if s.pe_ttm else None,
+            "pb": float(s.pb) if s.pb else None,
+            "latest_price": latest_price,
+            "change_pct": change_pct,
+        })
+    
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": items,
+    }
 
 
 @router.post("/watchlists/{watchlist_id}/items")
