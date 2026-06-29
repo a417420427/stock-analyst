@@ -715,16 +715,38 @@ export default function PortfolioPage() {
                   size="small"
                   columns={[
                     { title: '#', key: 'idx', width: 40, render: (_: any, __: any, i: number) => i + 1 },
-                    { title: '代码', dataIndex: 'symbol', width: 100 },
-                    { title: '名称', dataIndex: 'name', width: 120 },
+                    { title: '代码', dataIndex: 'symbol', width: 90 },
+                    { title: '名称', dataIndex: 'name', width: 110 },
                     {
-                      title: '权重', dataIndex: 'weight', width: 80,
+                      title: '权重', dataIndex: 'weight', width: 70,
                       render: (v: number) => <Tag color="blue">{(v * 100).toFixed(0)}%</Tag>,
                     },
-                    { title: '选股理由', dataIndex: 'reason', render: (v: string) => <div style={{ fontSize: 12, maxWidth: 280 }}>{v}</div> },
+                    {
+                      title: '预估金额', key: 'est_amount', width: 120,
+                      render: (_: any, r: any) => {
+                        const amt = (aiResult.initial_balance || 0) * (r.weight || 0);
+                        return `¥${amt.toLocaleString(undefined, { minimumFractionDigits: 0 })}`;
+                      },
+                    },
+                    { title: '选股理由', dataIndex: 'reason', render: (v: string) => <div style={{ fontSize: 12, maxWidth: 200 }}>{v}</div> },
                   ]}
                   style={{ marginBottom: 16 }}
                 />
+
+                {/* 预估汇总 */}
+                <Card size="small" style={{ background: '#fafafa', marginBottom: 16 }}>
+                  <Row gutter={16}>
+                    <Col span={8}>
+                      <Statistic title="初始资金" value={aiResult.initial_balance} prefix="¥" precision={0} />
+                    </Col>
+                    <Col span={8}>
+                      <Statistic title="股票数量" value={aiResult.suggestion.stocks?.length || 0} suffix="只" />
+                    </Col>
+                    <Col span={8}>
+                      <Statistic title="预估总投入" value={aiResult.suggestion.stocks?.reduce((s: number, r: any) => s + (aiResult.initial_balance || 0) * (r.weight || 0), 0) || 0} prefix="¥" precision={0} />
+                    </Col>
+                  </Row>
+                </Card>
 
                 <Divider />
 

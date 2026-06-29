@@ -287,6 +287,15 @@ class AIService:
                 timeout=120,
             )
             result = json.loads(resp.choices[0].message.content)
+
+            # 补齐股票名称
+            stock_map = {s.id: s.name for s in all_stocks}
+            stocks_list = result.get("stocks", [])
+            for item in stocks_list:
+                sid = item.get("stock_id")
+                if sid and sid in stock_map:
+                    item["name"] = stock_map[sid]
+
             return result
         except Exception as e:
             logger.error(f"AI select portfolio failed: {e}")
