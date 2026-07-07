@@ -1,10 +1,24 @@
 import { View, Text, ScrollView, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useLoad, usePullDownRefresh } from '@tarojs/taro'
+import { useLoad, usePullDownRefresh, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import * as api from '../../services/api'
 import type { SimulatedAccount } from '../../types'
 import './index.scss'
+
+// 检查登录态
+function useAuth() {
+  const [loggedIn, setLoggedIn] = useState(false)
+  useEffect(() => {
+    try {
+      const token = Taro.getStorageSync('stock_token')
+      setLoggedIn(!!token)
+    } catch {
+      setLoggedIn(false)
+    }
+  }, [])
+  return loggedIn
+}
 
 // ===== 持仓 & 交易类型 =====
 interface Position {
@@ -82,6 +96,7 @@ type TabView = 'accounts' | 'detail' | 'trades'
 type ModalType = 'none' | 'create' | 'trade' | 'fund' | 'ai' | 'ai-result' | 'ai-done'
 
 export default function PortfolioPage() {
+  const isLoggedIn = useAuth()
   const [accounts, setAccounts] = useState<SimulatedAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [tabView, setTabView] = useState<TabView>('accounts')
@@ -112,12 +127,27 @@ export default function PortfolioPage() {
   const [aiCreating, setAiCreating] = useState(false)
 
   useLoad(async () => {
+    if (!isLoggedIn) {
+      setLoading(false)
+      return
+    }
     await loadAccounts()
   })
 
   usePullDownRefresh(async () => {
+    if (!isLoggedIn) {
+      Taro.stopPullDownRefresh()
+      return
+    }
     await loadAccounts()
     Taro.stopPullDownRefresh()
+  })
+
+  useDidShow(() => {
+    const token = Taro.getStorageSync('stock_token')
+    if (!!token !== isLoggedIn) {
+      Taro.reLaunch({ url: '/pages/portfolio/index' })
+    }
   })
 
   const loadAccounts = async () => {
@@ -279,71 +309,83 @@ export default function PortfolioPage() {
   // ===== 账户列表视图 =====
   const renderAccounts = () => (
     <>
-      {/* 总资产头部 */}
-      <View className='portfolio-header'>
-        <View className='header-row'>
-          <View>
-            <Text className='header-label'>总资产</Text>
-            <Text className='header-balance'>¥{totalAsset.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
-            <Text className={`header-pl ${totalPL >= 0 ? 'up' : 'down'}`}>
-              总盈亏: {totalPL >= 0 ? '+' : ''}¥{totalPL.toLocaleString()}
-            </Text>
+      {!isLoggedIn ? (
+        <View className='empty-portfolio' style={{ paddingTop: '160rpx' }}>
+          <Text className='empty-icon'>🔐</Text>
+          <Text className='empty-text'>请先登录</Text>
+          <View className='empty-action' onClick={() => Taro.switchTab({ url: '/pages/login/index' })}>
+            去登录
           </View>
-        </View>
-      </View>
-
-      {/* AI 选股入口 */}
-      <View className='ai-section' onClick={() => setModal('ai')}>
-        <Text className='ai-title'>🤖 AI 智能选股</Text>
-        <Text className='ai-desc'>输入选股需求，AI 自动分析全市场并推荐投资组合</Text>
-        <View className='ai-btn'>
-          🚀 开始选股
-        </View>
-      </View>
-
-      {/* 账户列表 */}
-      <View className='section-header'>
-        <Text className='section-title'>交易账户</Text>
-        <Text className='section-action' onClick={() => setModal('create')}>+ 新建</Text>
-      </View>
-
-      {accounts.length === 0 ? (
-        <View className='empty-portfolio'>
-          <Text className='empty-icon'>💼</Text>
-          <Text className='empty-text'>
-            {loading ? '加载中...' : '暂无模拟账户\n点击下方按钮创建一个'}
-          </Text>
-          {!loading && (
-            <View className='empty-action' onClick={() => setModal('create')}>
-              + 创建账户
-            </View>
-          )}
         </View>
       ) : (
-        accounts.map(account => (
-          <View key={account.id} className='account-card' onClick={() => loadAccountDetail(account.id)}>
-            <View className='account-name-row'>
-              <Text className='account-name'>{account.name}</Text>
-              {account.is_ai_generated && (
-                <Text className='account-ai-tag'>AI</Text>
-              )}
-            </View>
-            <View className='account-detail-row'>
-              <Text className='detail-label'>总资产</Text>
-              <Text className='detail-value'>¥{account.total_asset.toLocaleString()}</Text>
-            </View>
-            <View className='account-detail-row'>
-              <Text className='detail-label'>可用余额</Text>
-              <Text className='detail-value'>¥{account.available_balance.toLocaleString()}</Text>
-            </View>
-            <View className='account-detail-row'>
-              <Text className='detail-label'>总盈亏</Text>
-              <Text className={`detail-value ${account.total_pnl >= 0 ? 'up' : 'down'}`}>
-                {account.total_pnl >= 0 ? '+' : ''}¥{account.total_pnl.toFixed(2)} ({account.pnl_pct}%)
-              </Text>
+        <>
+          {/* 总资产头部 */}
+          <View className='portfolio-header'>
+            <View className='header-row'>
+              <View>
+                <Text className='header-label'>总资产</Text>
+                <Text className='header-balance'>¥{totalAsset.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
+                <Text className={`header-pl ${totalPL >= 0 ? 'up' : 'down'}`}>
+                  总盈亏: {totalPL >= 0 ? '+' : ''}¥{totalPL.toLocaleString()}
+                </Text>
+              </View>
             </View>
           </View>
-        ))
+
+          {/* AI 选股入口 */}
+          <View className='ai-section' onClick={() => setModal('ai')}>
+            <Text className='ai-title'>🤖 AI 智能选股</Text>
+            <Text className='ai-desc'>输入选股需求，AI 自动分析全市场并推荐投资组合</Text>
+            <View className='ai-btn'>
+              🚀 开始选股
+            </View>
+          </View>
+
+          {/* 账户列表 */}
+          <View className='section-header'>
+            <Text className='section-title'>交易账户</Text>
+            <Text className='section-action' onClick={() => setModal('create')}>+ 新建</Text>
+          </View>
+
+          {accounts.length === 0 ? (
+            <View className='empty-portfolio'>
+              <Text className='empty-icon'>💼</Text>
+              <Text className='empty-text'>
+                {loading ? '加载中...' : '暂无模拟账户\n点击下方按钮创建一个'}
+              </Text>
+              {!loading && (
+                <View className='empty-action' onClick={() => setModal('create')}>
+                  + 创建账户
+                </View>
+              )}
+            </View>
+          ) : (
+            accounts.map(account => (
+              <View key={account.id} className='account-card' onClick={() => loadAccountDetail(account.id)}>
+                <View className='account-name-row'>
+                  <Text className='account-name'>{account.name}</Text>
+                  {account.is_ai_generated && (
+                    <Text className='account-ai-tag'>AI</Text>
+                  )}
+                </View>
+                <View className='account-detail-row'>
+                  <Text className='detail-label'>总资产</Text>
+                  <Text className='detail-value'>¥{account.total_asset.toLocaleString()}</Text>
+                </View>
+                <View className='account-detail-row'>
+                  <Text className='detail-label'>可用余额</Text>
+                  <Text className='detail-value'>¥{account.available_balance.toLocaleString()}</Text>
+                </View>
+                <View className='account-detail-row'>
+                  <Text className='detail-label'>总盈亏</Text>
+                  <Text className={`detail-value ${account.total_pnl >= 0 ? 'up' : 'down'}`}>
+                    {account.total_pnl >= 0 ? '+' : ''}¥{account.total_pnl.toFixed(2)} ({account.pnl_pct}%)
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
+        </>
       )}
     </>
   )

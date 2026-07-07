@@ -1,54 +1,74 @@
 import { View, Text, Input, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useLoad, useDidShow } from '@tarojs/taro'
+import { useLoad } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '../../services/api'
 import type { Stock } from '../../types'
 import './index.scss'
 
+interface StockItem extends Stock {
+  latest_price?: number
+  change_pct?: number
+}
+
 export default function StocksPage() {
   const [searchText, setSearchText] = useState('')
-  const [marketFilter, setMarketFilter] = useState('')
-  const [stocks, setStocks] = useState<Stock[]>([])
+  const [marketFilter, setMarketFilter] = useState('A')
+  const [stocks, setStocks] = useState<StockItem[]>([])
   const [loading, setLoading] = useState(false)
-  const [hasSearched, setHasSearched] = useState(false)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
 
-  const markets = [
-    { key: '', label: '全部' },
-    { key: 'A', label: 'A股' },
-    { key: 'HK', label: '港股' },
-    { key: 'US', label: '美股' },
-  ]
-
-  const doSearch = useCallback(async (text: string, market: string) => {
-    if (!text.trim()) {
-      setStocks([])
-      setHasSearched(false)
-      return
-    }
+  const loadStocks = useCallback(async (p: number, append: boolean = false) => {
     setLoading(true)
-    setHasSearched(true)
     try {
-      const data = await api.searchStocks(text.trim(), market || undefined)
-      setStocks(data)
+      const res = await api.request<any>('GET', `/market/stocks/all?market=${marketFilter}&page=${p}&page_size=20`)
+      const items = (res.items || []) as StockItem[]
+      if (append) {
+        setStocks(prev => [...prev, ...items])
+      } else {
+        setStocks(items)
+      }
+      setTotal(res.total || 0)
+      setHasMore(items.length === 20)
     } catch {
       setStocks([])
     }
     setLoading(false)
-  }, [])
+  }, [marketFilter])
 
-  const handleSearch = () => {
-    doSearch(searchText, marketFilter)
-  }
+  useLoad(async () => {
+    setPage(1)
+    await loadStocks(1)
+  })
 
-  const handleFilter = (market: string) => {
-    setMarketFilter(market)
-    if (searchText.trim()) {
-      doSearch(searchText, market)
+  const handleSearch = async () => {
+    if (!searchText.trim()) {
+      setPage(1)
+      await loadStocks(1)
+      return
     }
+    setLoading(true)
+    try {
+      const data = await api.searchStocks(searchText.trim(), marketFilter || undefined)
+      setStocks(data as any)
+      setTotal(data.length)
+      setHasMore(false)
+    } catch {
+      setStocks([])
+    }
+    setLoading(false)
   }
 
-  const handleStockClick = (stock: Stock) => {
+  const handleScrollToLower = async () => {
+    if (!hasMore || loading) return
+    const nextPage = page + 1
+    setPage(nextPage)
+    await loadStocks(nextPage, true)
+  }
+
+  const handleStockClick = (stock: StockItem) => {
     Taro.navigateTo({ url: `/pages/stock-detail/index?stockId=${stock.id}` })
   }
 
@@ -56,12 +76,6 @@ export default function StocksPage() {
   const marketLabel = (m: string) => {
     const map: Record<string, string> = { A: 'A股', HK: '港股', US: '美股' }
     return map[m] || m
-  }
-
-  // 模拟涨跌幅（从实时数据获取，这里展示 placeholder）
-  const getChange = (stock: Stock) => {
-    // 如果有 change_pct 字段则显示
-    return (stock as any).change_pct
   }
 
   return (
@@ -72,7 +86,7 @@ export default function StocksPage() {
           <Text className='search-icon'>🔍</Text>
           <Input
             className='search-input'
-            placeholder='输入股票名称或代码'
+            placeholder='搜索股票名称或代码'
             value={searchText}
             onInput={(e) => setSearchText(e.detail.value)}
             onConfirm={handleSearch}
@@ -82,60 +96,62 @@ export default function StocksPage() {
         <Text className='search-cancel' onClick={handleSearch}>搜索</Text>
       </View>
 
-      {/* 市场筛选 */}
-      <View className='market-filters'>
-        {markets.map(m => (
-          <Text
-            key={m.key}
-            className={`filter-btn ${marketFilter === m.key ? 'active' : ''}`}
-            onClick={() => handleFilter(m.key)}
-          >
-            {m.label}
-          </Text>
-        ))}
-      </View>
-
       {/* 股票列表 */}
       <View className='stock-list-wrap'>
-        <ScrollView scrollY className='stock-list' refresherEnabled>
-          {loading ? (
-            <View className='load-more'>搜索中...</View>
-          ) : hasSearched && stocks.length === 0 ? (
+        <ScrollView
+          scrollY
+          className='stock-list'
+          refresherEnabled
+          onScrollToLower={handleScrollToLower}
+          style={{ height: '100%' }}
+        >
+          {loading && stocks.length === 0 ? (
+            <View className='load-more'>加载中...</View>
+          ) : stocks.length === 0 ? (
             <View className='empty-state'>
-              <Text className='empty-icon'>🔍</Text>
-              <Text className='empty-text'>未找到匹配的股票</Text>
+              <Text className='empty-icon'>📭</Text>
+              <Text className='empty-text'>暂无数据</Text>
+              <Text className='empty-sub'>下拉刷新重试</Text>
             </View>
           ) : (
-            stocks.map(stock => (
-              <View
-                key={stock.id}
-                className='stock-card'
-                onClick={() => handleStockClick(stock)}
-              >
-                <View className='stock-card-left'>
-                  <View className='stock-name-row'>
-                    <Text className='stock-name'>{stock.name}</Text>
-                    <Text className='stock-symbol'>{stock.symbol}</Text>
+            <>
+              {stocks.map(stock => (
+                <View
+                  key={stock.id}
+                  className='stock-card'
+                  onClick={() => handleStockClick(stock)}
+                >
+                  <View className='stock-card-left'>
+                    <View className='stock-name-row'>
+                      <Text className='stock-name'>{stock.name}</Text>
+                      <Text className='stock-symbol'>{stock.symbol}</Text>
+                    </View>
+                    <View className='stock-meta'>
+                      <Text className={`market-tag ${stock.market.toLowerCase()}`}>
+                        {marketLabel(stock.market)}
+                      </Text>
+                      {stock.sector && (
+                        <Text className='stock-sector'>{stock.sector}</Text>
+                      )}
+                    </View>
                   </View>
-                  <View className='stock-meta'>
-                    <Text className={`market-tag ${stock.market.toLowerCase()}`}>
-                      {marketLabel(stock.market)}
+                  <View className='stock-card-right'>
+                    <Text className='stock-price'>
+                      {stock.latest_price ? stock.latest_price.toFixed(2) : '--'}
                     </Text>
-                    {stock.sector && (
-                      <Text className='stock-sector'>{stock.sector}</Text>
-                    )}
+                    <Text className={`stock-change ${(stock.change_pct ?? 0) >= 0 ? 'up' : 'down'}`}>
+                      {(stock.change_pct ?? 0) >= 0 ? '+' : ''}{(stock.change_pct ?? 0).toFixed(2)}%
+                    </Text>
                   </View>
                 </View>
-                <View className='stock-card-right'>
-                  <Text className='stock-price'>
-                    {stock.pe_ttm ? `PE ${stock.pe_ttm.toFixed(1)}` : '--'}
-                  </Text>
-                  {stock.pb && (
-                    <Text className='stock-change flat'>PB {stock.pb.toFixed(2)}</Text>
-                  )}
-                </View>
-              </View>
-            ))
+              ))}
+              {loading && stocks.length > 0 && (
+                <View className='load-more'>加载更多...</View>
+              )}
+              {!hasMore && stocks.length > 0 && (
+                <View className='load-more'>共 {total} 只股票</View>
+              )}
+            </>
           )}
         </ScrollView>
       </View>

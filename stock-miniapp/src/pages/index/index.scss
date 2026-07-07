@@ -1,4 +1,4 @@
-/* 大盘行情页 */
+/* 大盘行情页（改为板块首页） */
 .dashboard {
   height: 100vh;
   padding: 0 24rpx;
@@ -15,73 +15,6 @@
   padding: 16rpx 0 8rpx;
 }
 
-/* 指数卡片 — 修正左右对齐 */
-.index-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-  margin-bottom: 28rpx;
-}
-
-.index-card {
-  display: flex;
-  align-items: center;
-  background: var(--card);
-  border-radius: 20rpx;
-  padding: 20rpx 24rpx;
-  box-shadow: var(--shadow);
-  animation: fadeInUp 0.3s ease;
-}
-
-.index-left {
-  flex: 0 0 130rpx;
-}
-
-.index-name {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: var(--text);
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.index-symbol {
-  font-size: 18rpx;
-  color: var(--text-light);
-  margin-top: 2rpx;
-  white-space: nowrap;
-}
-
-.index-chart {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-}
-
-.index-right {
-  flex: 0 0 130rpx;
-  text-align: right;
-}
-
-.index-price {
-  font-size: 28rpx;
-  font-weight: 700;
-  color: var(--text);
-  display: block;
-  white-space: nowrap;
-}
-
-.index-change {
-  font-size: 22rpx;
-  font-weight: 600;
-  margin-top: 4rpx;
-  white-space: nowrap;
-}
-
 /* 通用 Section */
 .section {
   margin-bottom: 28rpx;
@@ -92,6 +25,60 @@
   font-weight: 600;
   color: var(--text);
   margin-bottom: 16rpx;
+  display: block;
+}
+
+/* 板块卡片列表 */
+.sector-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.sector-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card);
+  border-radius: 16rpx;
+  padding: 18rpx 24rpx;
+  box-shadow: var(--shadow);
+  animation: fadeInUp 0.3s ease;
+}
+
+.sector-card:active {
+  transform: scale(0.97);
+}
+
+.sector-left {
+  flex: 1;
+}
+
+.sector-name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sector-count {
+  font-size: 20rpx;
+  color: var(--text-light);
+  margin-top: 2rpx;
+  display: block;
+}
+
+.sector-right {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.sector-change {
+  font-size: 28rpx;
+  font-weight: 700;
   display: block;
 }
 

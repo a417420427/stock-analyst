@@ -1,18 +1,35 @@
 import { View, Text, ScrollView } from '@tarojs/components'
-import { useLoad, usePullDownRefresh, useDidShow } from '@tarojs/taro'
+import { useLoad, usePullDownRefresh } from '@tarojs/taro'
 import Taro from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import * as api from '../../services/api'
-import MiniChart from '../../components/MiniChart'
-import type { IndexData } from '../../types'
+import type { SectorData } from '../../types'
 import './index.scss'
 
+// 静默微信登录
+async function silentLogin() {
+  try {
+    const token = Taro.getStorageSync('stock_token')
+    if (token) return
+    // @ts-ignore
+    const loginRes = await Taro.login()
+    if (!loginRes.code) return
+    const data = await api.wxLogin(loginRes.code)
+    if (data.user) {
+      Taro.setStorageSync('stock_user', data.user)
+    }
+  } catch {
+    // 静默失败不影响使用
+  }
+}
+
 export default function Dashboard() {
-  const [indices, setIndices] = useState<IndexData[]>([])
+  const [sectors, setSectors] = useState<SectorData[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdate, setLastUpdate] = useState('')
 
   useLoad(async () => {
+    await silentLogin()
     await loadData()
   })
 
@@ -24,11 +41,11 @@ export default function Dashboard() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const data = await api.getIndices()
-      setIndices(data)
+      const data = await api.getSectors()
+      setSectors(data)
       setLastUpdate(new Date().toLocaleTimeString('zh-CN', { hour12: false }))
     } catch (err: any) {
-      Taro.showToast({ title: '获取行情失败', icon: 'none' })
+      Taro.showToast({ title: '获取板块数据失败', icon: 'none' })
     }
     setLoading(false)
   }
@@ -45,10 +62,12 @@ export default function Dashboard() {
     Taro.switchTab({ url: '/pages/portfolio/index' })
   }
 
-  // 市场统计
-  const aCount = indices.filter(i => i.market === 'A').length
-  const hkCount = indices.filter(i => i.market === 'HK').length
-  const usCount = indices.filter(i => i.market === 'US').length
+  // 板块统计
+  const topGainers = [...sectors].sort((a, b) => b.avg_change - a.avg_change).slice(0, 3)
+  const topLosers = [...sectors].sort((a, b) => a.avg_change - b.avg_change).slice(0, 3)
+  const upCount = sectors.filter(s => s.avg_change > 0).length
+  const downCount = sectors.filter(s => s.avg_change < 0).length
+  const totalSectors = sectors.length
 
   return (
     <ScrollView className='dashboard' scrollY>
@@ -57,48 +76,56 @@ export default function Dashboard() {
         <Text className='update-time'>最近更新: {lastUpdate}</Text>
       )}
 
-      {/* 指数列表 */}
-      <View className='index-list'>
-        {indices.map((idx) => (
-          <View key={idx.symbol} className={`index-card ${idx.change_pct >= 0 ? 'bg-up' : 'bg-down'}`}>
-            <View className='index-left'>
-              <Text className='index-name'>{idx.name}</Text>
-              <Text className='index-symbol'>{idx.symbol}</Text>
+      {/* 板块概览 — 涨幅前3 + 跌幅前3 */}
+      <View className='section'>
+        <Text className='section-title'>涨幅前三</Text>
+        <View className='sector-list'>
+          {topGainers.map((s) => (
+            <View key={s.sector} className='sector-card bg-up'>
+              <View className='sector-left'>
+                <Text className='sector-name'>{s.sector}</Text>
+                <Text className='sector-count'>{s.count} 只</Text>
+              </View>
+              <View className='sector-right'>
+                <Text className='sector-change up'>+{s.avg_change.toFixed(2)}%</Text>
+              </View>
             </View>
-            <View className='index-chart'>
-              {idx.prices?.length > 1 && (
-                <MiniChart
-                  prices={idx.prices}
-                  width={160}
-                  height={60}
-                />
-              )}
-            </View>
-            <View className='index-right'>
-              <Text className='index-price'>{idx.price.toFixed(2)}</Text>
-              <Text className={`index-change ${idx.change_pct >= 0 ? 'up' : 'down'}`}>
-                {idx.change_pct >= 0 ? '+' : ''}{idx.change_pct.toFixed(2)}%
-              </Text>
-            </View>
-          </View>
-        ))}
+          ))}
+        </View>
       </View>
 
-      {/* 市场概览 */}
       <View className='section'>
-        <Text className='section-title'>市场概览</Text>
+        <Text className='section-title'>跌幅前三</Text>
+        <View className='sector-list'>
+          {topLosers.map((s) => (
+            <View key={s.sector} className='sector-card bg-down'>
+              <View className='sector-left'>
+                <Text className='sector-name'>{s.sector}</Text>
+                <Text className='sector-count'>{s.count} 只</Text>
+              </View>
+              <View className='sector-right'>
+                <Text className='sector-change down'>{s.avg_change.toFixed(2)}%</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* 板块统计 */}
+      <View className='section'>
+        <Text className='section-title'>板块统计</Text>
         <View className='market-overview'>
-          <View className='market-chip' onClick={handleStockList}>
-            <Text className='chip-label'>A 股</Text>
-            <Text className='chip-count'>{aCount} 指数</Text>
+          <View className='market-chip' onClick={handleSectors}>
+            <Text className='chip-label'>板块总数</Text>
+            <Text className='chip-count'>{totalSectors}</Text>
           </View>
-          <View className='market-chip' onClick={handleStockList}>
-            <Text className='chip-label'>港股</Text>
-            <Text className='chip-count'>{hkCount} 指数</Text>
+          <View className='market-chip' onClick={handleSectors}>
+            <Text className='chip-label' style={{ color: '#ef4444' }}>上涨</Text>
+            <Text className='chip-count' style={{ color: '#ef4444' }}>{upCount}</Text>
           </View>
-          <View className='market-chip' onClick={handleStockList}>
-            <Text className='chip-label'>美股</Text>
-            <Text className='chip-count'>{usCount} 指数</Text>
+          <View className='market-chip' onClick={handleSectors}>
+            <Text className='chip-label' style={{ color: '#22c55e' }}>下跌</Text>
+            <Text className='chip-count' style={{ color: '#22c55e' }}>{downCount}</Text>
           </View>
         </View>
       </View>

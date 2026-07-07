@@ -79,12 +79,32 @@ export async function login(username: string, password: string): Promise<{ acces
   return data
 }
 
+// ===== 微信登录 =====
+export async function wxLogin(code: string): Promise<{ access_token: string; user: any; is_new: boolean; has_phone: boolean }> {
+  const data = await request<{ access_token: string; user: any; is_new: boolean; has_phone: boolean }>(
+    'POST', `/auth/wx-login?code=${encodeURIComponent(code)}`, undefined, { noAuth: true }
+  )
+  if (data.access_token) {
+    setToken(data.access_token)
+    Taro.setStorageSync('stock_user', data.user)
+  }
+  return data
+}
+
 export async function register(username: string, password: string, email?: string) {
   return request<any>('POST', '/auth/register', { username, password, email }, { noAuth: true })
 }
 
 export function logout() {
   clearToken()
+}
+
+// ===== 微信手机号绑定 =====
+export async function bindPhone(code: string): Promise<{ message: string; phone: string }> {
+  const data = await request<{ message: string; phone: string }>(
+    'POST', `/auth/bind-phone?code=${encodeURIComponent(code)}`
+  )
+  return data
 }
 
 // ===== 大盘指数 =====

@@ -4,6 +4,7 @@
   display: flex;
   flex-direction: column;
   background: var(--bg);
+  overflow: hidden;
 }
 
 /* 搜索框 */
@@ -75,6 +76,7 @@
   flex: 1;
   overflow: hidden;
   width: 100%;
+  height: 0;  /* 触发 flex child 高度计算 */
 }
 
 .stock-list {
@@ -83,6 +85,7 @@
   flex-direction: column;
   gap: 12rpx;
   width: 100%;
+  box-sizing: border-box;
 }
 
 /* 股票卡片 */
@@ -167,6 +170,11 @@
 }
 
 /* 加载更多 */
+.stock-change.up { color: #ef4444; }
+.stock-change.down { color: #22c55e; }
+.stock-change.flat { color: var(--text-light); }
+
+/* 加载更多 */
 .load-more {
   text-align: center;
   padding: 24rpx;
@@ -190,4 +198,10 @@
 
 .empty-text {
   font-size: 26rpx;
+}
+
+.empty-sub {
+  font-size: 22rpx;
+  color: var(--text-light);
+  margin-top: 8rpx;
 }
