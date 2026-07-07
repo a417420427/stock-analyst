@@ -45,8 +45,8 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o"
 
     # 微信小程序
-    wx_appid: str = ""
-    wx_secret: str = ""
+    wx_appid: str = "wx91ab130a04745bd8"
+    wx_secret: str = "661b01050954c8440e016f8d4b1a9607"
 
     # 阿里云短信
     aliyun_access_key_id: str = ""

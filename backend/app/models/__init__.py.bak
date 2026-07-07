@@ -7,7 +7,6 @@ from typing import Optional
 from sqlalchemy import (
     Boolean, Column, DateTime, DECIMAL, Enum, ForeignKey, Integer,
     JSON, String, Text, Float, BigInteger, UniqueConstraint, Index,
-    event,
 )
 from sqlalchemy.orm import relationship
 
@@ -20,7 +19,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(64), unique=True, nullable=False, index=True)
     email = Column(String(128), unique=True, nullable=True)
-    hashed_password = Column(String(256), nullable=True)  # nullable for WeChat-only users
+    hashed_password = Column(String(256), nullable=False)
     openid = Column(String(128), unique=True, nullable=True)  # 微信小程序 openid
     phone = Column(String(16), nullable=True)  # 绑定手机号
     is_active = Column(Boolean, default=True)

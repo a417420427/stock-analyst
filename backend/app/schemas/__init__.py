@@ -209,6 +209,14 @@ class PushHistoryOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ─── 模拟账户 ────────────────────────────────────────
+
+class AccountCreate(BaseModel):
+    name: str = "默认组合"
+    initial_balance: float = 1000000.0
+    strategy_id: Optional[int] = None
+
+
 # ─── 模拟交易 ────────────────────────────────────────
 
 class SimTradeOut(BaseModel):

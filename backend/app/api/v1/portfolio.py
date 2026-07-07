@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models import SimulatedAccount, SimulatedTrade, Stock, Price, Strategy, User
+from app.api.v1.auth import get_current_user
+from app.schemas import AccountCreate
 
 router = APIRouter()
 
@@ -32,17 +34,17 @@ async def _log(db: AsyncSession, user_id: int, action: str, level: str, title: s
 
 @router.post("/accounts")
 async def create_account(
-    name: str = "默认组合",
-    initial_balance: float = 1000000.0,
-    strategy_id: Optional[int] = None,
+    body: AccountCreate,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """创建模拟账户"""
     account = SimulatedAccount(
-        name=name,
-        initial_balance=Decimal(str(initial_balance)),
-        available_balance=Decimal(str(initial_balance)),
-        strategy_id=strategy_id,
+        user_id=user.id,
+        name=body.name,
+        initial_balance=Decimal(str(body.initial_balance)),
+        available_balance=Decimal(str(body.initial_balance)),
+        strategy_id=body.strategy_id,
     )
     db.add(account)
     await db.flush()
@@ -56,9 +58,17 @@ async def create_account(
 
 
 @router.get("/accounts")
-async def list_accounts(db: AsyncSession = Depends(get_db)):
-    """列出所有模拟账户（含汇总）"""
-    result = await db.execute(select(SimulatedAccount).where(SimulatedAccount.is_active == True))
+async def list_accounts(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """列出当前用户的所有模拟账户（含汇总）"""
+    result = await db.execute(
+        select(SimulatedAccount).where(
+            SimulatedAccount.is_active == True,
+            SimulatedAccount.user_id == user.id,
+        )
+    )
     accounts = list(result.scalars().all())
 
     items = []
@@ -129,10 +139,14 @@ async def list_accounts(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/accounts/{account_id}")
-async def get_account_detail(account_id: int, db: AsyncSession = Depends(get_db)):
+async def get_account_detail(
+    account_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     """获取单个账户详细持仓"""
     acc = await db.get(SimulatedAccount, account_id)
-    if not acc:
+    if not acc or acc.user_id != user.id:
         raise HTTPException(404, "账户不存在")
 
     strat_name = None
@@ -246,10 +260,11 @@ async def create_trade(
     order_type: str = Query("market", pattern="^(market|limit)$"),
     note: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """在指定账户下记录一笔交易"""
     acc = await db.get(SimulatedAccount, account_id)
-    if not acc:
+    if not acc or acc.user_id != user.id:
         raise HTTPException(404, "账户不存在")
 
     stock = await db.get(Stock, stock_id)
@@ -297,6 +312,7 @@ async def create_trade(
         acc.available_balance = Decimal(str(float(acc.available_balance) + trade_total - commission - stamp_duty))
 
     trade = SimulatedTrade(
+        user_id=user.id,
         account_id=account_id,
         stock_id=stock_id,
         side=side,
@@ -310,7 +326,7 @@ async def create_trade(
     db.add(trade)
     await db.flush()
 
-    await _log(db, "trade", "success",
+    await _log(db, user.id, "trade", "success",
         f'{"买入" if side == "buy" else "卖出"} {stock.name} {quantity}股 @ {price}',
         {"account_id": account_id, "stock_id": stock_id, "side": side, "quantity": quantity,
          "price": price, "total": trade_total, "commission": commission, "stamp_duty": stamp_duty}
@@ -344,8 +360,12 @@ async def list_trades(
     account_id: int,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """获取账户的交易流水"""
+    acc = await db.get(SimulatedAccount, account_id)
+    if not acc or acc.user_id != user.id:
+        raise HTTPException(404, "账户不存在")
     result = await db.execute(
         select(SimulatedTrade)
         .where(SimulatedTrade.account_id == account_id)
@@ -377,10 +397,14 @@ async def list_trades(
 
 
 @router.delete("/accounts/{account_id}")
-async def reset_account(account_id: int, db: AsyncSession = Depends(get_db)):
+async def reset_account(
+    account_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     """重置账户（删除所有交易记录，恢复初始资金）"""
     acc = await db.get(SimulatedAccount, account_id)
-    if not acc:
+    if not acc or acc.user_id != user.id:
         raise HTTPException(404, "账户不存在")
 
     # Delete all trades
@@ -396,15 +420,37 @@ async def reset_account(account_id: int, db: AsyncSession = Depends(get_db)):
     return {"message": f"账户 '{acc.name}' 已重置，初始资金 ¥{float(acc.initial_balance):.2f}"}
 
 
+@router.delete("/accounts/{account_id}/delete")
+async def delete_account(
+    account_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """删除账户（软删除，is_active=False）"""
+    acc = await db.get(SimulatedAccount, account_id)
+    if not acc or acc.user_id != user.id:
+        raise HTTPException(404, "账户不存在")
+
+    acc.is_active = False
+    await _log(
+        db, user.id, "account_delete", "info",
+        f'删除组合 "{acc.name}"',
+        {"account_id": account_id, "name": acc.name}
+    )
+    await db.flush()
+    return {"message": f"账户 '{acc.name}' 已删除"}
+
+
 @router.post("/accounts/{account_id}/deposit")
 async def deposit(
     account_id: int,
     amount: float = Query(..., gt=0),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """追加资金"""
     acc = await db.get(SimulatedAccount, account_id)
-    if not acc:
+    if not acc or acc.user_id != user.id:
         raise HTTPException(404, "账户不存在")
     acc.available_balance += Decimal(str(amount))
     await db.flush()
@@ -419,10 +465,11 @@ async def withdraw(
     account_id: int,
     amount: float = Query(..., gt=0),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """提取资金"""
     acc = await db.get(SimulatedAccount, account_id)
-    if not acc:
+    if not acc or acc.user_id != user.id:
         raise HTTPException(404, "账户不存在")
     if float(acc.available_balance) < amount:
         raise HTTPException(400, f"可用资金不足: ¥{float(acc.available_balance):.2f}")
@@ -476,6 +523,7 @@ async def ai_create_portfolio(
     prompt: str = Query(..., description="选股需求描述"),
     initial_balance: float = Query(1000000.0, ge=10000),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """AI 选股并直接创建模拟账户+买入"""
     from app.services.ai import AIService
@@ -585,8 +633,8 @@ async def ai_create_portfolio(
             "commission": commission,
         })
 
-    await _log(db, "ai_pick", "success",
-    f'AI选股创建组合 "{name}" ({len(trades_created)}只)',
+    await _log(db, user.id, "ai_pick", "success",
+        f'AI选股创建组合 "{name}" ({len(trades_created)}只)',
         {"account_id": account.id, "name": name, "prompt": prompt, "trades": trades_created}
     )
 
@@ -617,6 +665,7 @@ async def ai_auto_pick(
     top_n: int = Query(5, ge=1, le=20),
     initial_balance: float = Query(100000.0, ge=10000),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """AI 自动选股 — 预测全市场选出明日最佳 Top N，自动创建组合并买入"""
     from app.services.ai import AIService
@@ -713,7 +762,7 @@ async def ai_auto_pick(
             "commission": commission,
         })
 
-    await _log(db, "ai_pick", "success",
+    await _log(db, user.id, "ai_pick", "success",
         f'AI自动选股 "{name}" ({len(trades_created)}只)',
         {"account_id": account.id, "name": name, "prompt": prompt, "trades": trades_created}
     )

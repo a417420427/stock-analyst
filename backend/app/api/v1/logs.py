@@ -1,5 +1,6 @@
 """操作日志 API"""
 from fastapi import APIRouter, Depends, Query
+from typing import Optional
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +14,7 @@ router = APIRouter()
 
 @router.get("")
 async def list_logs(
-    action: str | None = None,
+    action: Optional[str] = None,
     limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
