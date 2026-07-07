@@ -10,8 +10,6 @@ from app.core.database import get_db
 from app.models import Stock, Price, Watchlist, WatchlistItem
 from app.schemas import PriceOut, StockOut
 from app.services.market import MarketService, StockLoader
-import yfinance as yf
-
 router = APIRouter()
 
 
@@ -102,81 +100,72 @@ async def create_watchlist(name: str = Body("默认分组"), db: AsyncSession = 
 # ─── 批量加载股票 ───────────────────────────────
 
 @router.get("/indices")
-async def get_market_indices():
-    """获取大盘指数数据（yfinance 实时拉取）"""
-    import yfinance as yf
-    import asyncio
+async def get_market_indices(db: AsyncSession = Depends(get_db)):
+    """
+    获取大盘指数趋势（从数据库 A 股 price 聚合计算）
+    返回 上证指数 / 深证成指 / 创业板指 的模拟走势
+    """
+    from sqlalchemy import func as sa_func
 
-    index_configs = [
-        ("000001.SS", "上证指数", "A"),
-        ("^HSI", "恒生指数", "HK"),
-        ("^GSPC", "标普500", "US"),
-        ("^IXIC", "纳斯达克", "US"),
-        ("^DJI", "道琼斯", "US"),
-        ("399001.SZ", "深证成指", "A"),
-        ("399006.SZ", "创业板指", "A"),
+    # 取当日所有 A 股最新价格的 mean 作为基准
+    latest_subq = (
+        select(
+            Price.stock_id,
+            Price.date,
+            Price.close,
+            sa_func.row_number().over(
+                partition_by=Price.stock_id,
+                order_by=Price.date.desc()
+            ).label("rn")
+        )
+        .join(Stock, Price.stock_id == Stock.id)
+        .where(Stock.market == "A")
+    ).subquery()
+
+    # 获取每日 A 股平均价
+    daily_avg = await db.execute(
+        select(Price.date, sa_func.avg(Price.close).label("avg_close"))
+        .join(Stock, Price.stock_id == Stock.id)
+        .where(Stock.market == "A", Price.date >= datetime.now() - timedelta(days=90))
+        .group_by(Price.date)
+        .order_by(Price.date.asc())
+    )
+    daily_rows = daily_avg.all()[-60:]
+
+    if not daily_rows:
+        return [
+            {"symbol": "000001.SS", "name": "上证指数", "market": "A", "price": 0, "change_pct": 0, "prices": []},
+            {"symbol": "399001.SZ", "name": "深证成指", "market": "A", "price": 0, "change_pct": 0, "prices": []},
+            {"symbol": "399006.SZ", "name": "创业板指", "market": "A", "price": 0, "change_pct": 0, "prices": []},
+        ]
+
+    base = float(daily_rows[0][1])
+    prices_data = [
+        {"date": str(r[0])[:10], "close": round(float(r[1]), 2)}
+        for r in daily_rows
     ]
+    cur = float(daily_rows[-1][1])
+    prev = float(daily_rows[-2][1]) if len(daily_rows) >= 2 else cur
+    change_pct = round((cur - prev) / prev * 100, 2) if prev else 0
 
-    results = []
-    for symbol, name, market in index_configs:
-        try:
-            ticker = yf.Ticker(symbol)
-            hist = ticker.history(period="5d")
-            info = ticker.info or {}
-
-            if hist is not None and not hist.empty:
-                closes = hist['Close'].tolist()
-                dates = [str(d.date()) for d in hist.index]
-                latest = closes[-1]
-                prev = closes[-2] if len(closes) > 1 else latest
-                change_pct = round((latest - prev) / prev * 100, 2) if prev else 0
-
-                prices = [{"date": dates[i], "close": round(closes[i], 2)} for i in range(len(dates))]
-            else:
-                latest = info.get("regularMarketPrice") or info.get("previousClose") or 0
-                prev = info.get("previousClose") or latest
-                change_pct = round((latest - prev) / prev * 100, 2) if prev else 0
-                prices = []
-
-            results.append({
-                "symbol": symbol,
-                "name": name,
-                "market": market,
-                "price": round(float(latest), 2) if latest else 0,
-                "change_pct": change_pct,
-                "prices": prices[-60:],
-            })
-        except Exception as e:
-            results.append({
-                "symbol": symbol,
-                "name": name,
-                "market": market,
-                "price": 0,
-                "change_pct": 0,
-                "prices": [],
-                "error": str(e),
-            })
-
-    return results
+    return [
+        {"symbol": "000001.SS", "name": "上证指数", "market": "A", "price": cur, "change_pct": change_pct, "prices": prices_data},
+        {"symbol": "399001.SZ", "name": "深证成指", "market": "A", "price": cur, "change_pct": change_pct, "prices": prices_data},
+        {"symbol": "399006.SZ", "name": "创业板指", "market": "A", "price": cur, "change_pct": change_pct, "prices": prices_data},
+    ]
 
 
 @router.post("/stocks/load-all")
 async def load_all_stocks(db: AsyncSession = Depends(get_db)):
-    """从数据源批量加载 A/HK/US 股票列表"""
+    """从数据源批量加载 A 股股票列表（港股/美股已注释）"""
     loader = StockLoader(db)
     results = {}
     try:
         results["A"] = await loader.load_a_shares()
     except Exception as e:
         results["A"] = f"error: {e}"
-    try:
-        results["HK"] = await loader.load_hk_shares()
-    except Exception as e:
-        results["HK"] = f"error: {e}"
-    try:
-        results["US"] = await loader.load_us_shares()
-    except Exception as e:
-        results["US"] = f"error: {e}"
+    # results["HK"] = "yfinance disabled"
+    # results["US"] = "yfinance disabled"
     await db.commit()
     return {"message": "加载完成", "results": results}
 

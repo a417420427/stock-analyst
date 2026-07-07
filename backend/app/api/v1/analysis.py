@@ -126,7 +126,8 @@ async def comprehensive_analysis(stock_id: int, db: AsyncSession = Depends(get_d
 
 @router.get("/sectors")
 async def sector_analysis(db: AsyncSession = Depends(get_db)):
-    """行业板块分析"""
+    """行业板块分析（优化：按需加载股票明细）"""
+    # 1. 按 sector 分组统计
     result = await db.execute(
         select(Stock.sector, func.count(Stock.id), func.avg(Stock.pe_ttm), func.avg(Stock.pb))
         .where(Stock.sector.isnot(None))
@@ -134,27 +135,69 @@ async def sector_analysis(db: AsyncSession = Depends(get_db)):
     )
     rows = result.all()
 
+    # 2. 一次性查所有股票（不含价格），按 sector 分类
+    all_stocks = await db.execute(
+        select(Stock).where(Stock.sector.isnot(None)).order_by(Stock.sector, Stock.id)
+    )
+    from collections import defaultdict
+    sector_stocks = defaultdict(list)
+    for s in all_stocks.scalars().all():
+        sector_stocks[s.sector].append(s)
+
+    # 3. 一次性查所有最新价格（每个 stock_id 最新一条）
+    latest_price_subq = (
+        select(
+            Price.stock_id,
+            Price.close,
+            func.row_number().over(
+                partition_by=Price.stock_id,
+                order_by=Price.date.desc()
+            ).label("rn")
+        )
+    ).subquery()
+
+    latest_prices = await db.execute(
+        select(latest_price_subq.c.stock_id, latest_price_subq.c.close)
+        .where(latest_price_subq.c.rn == 1)
+    )
+    stock_latest = {}
+    for stock_id, close in latest_prices.all():
+        stock_latest[stock_id] = float(close) if close else None
+
+    # 4. 一次性查前一日价格（每个 stock_id 第二条）
+    prev_price_subq = (
+        select(
+            Price.stock_id,
+            Price.close,
+            func.row_number().over(
+                partition_by=Price.stock_id,
+                order_by=Price.date.desc()
+            ).label("rn")
+        )
+    ).subquery()
+
+    prev_prices = await db.execute(
+        select(prev_price_subq.c.stock_id, prev_price_subq.c.close)
+        .where(prev_price_subq.c.rn == 2)
+    )
+    stock_prev = {}
+    for stock_id, close in prev_prices.all():
+        stock_prev[stock_id] = float(close) if close else None
+
     sectors = []
     for row in rows:
         sector, count, avg_pe, avg_pb = row
-
-        # 计算该行业股票的平均涨跌幅
-        stocks_in_sector = await db.execute(
-            select(Stock).where(Stock.sector == sector)
-        )
-        sector_stocks = list(stocks_in_sector.scalars().all())
+        stocks = sector_stocks.get(sector, [])
 
         total_change = 0.0
         change_count = 0
         stock_list = []
-        for s in sector_stocks[:20]:
-            price_result = await db.execute(
-                select(Price).where(Price.stock_id == s.id).order_by(Price.date.desc()).limit(2)
-            )
-            prices = list(price_result.scalars().all())
+        for s in stocks[:20]:
+            close_now = stock_latest.get(s.id)
+            close_prev = stock_prev.get(s.id)
             change = 0.0
-            if len(prices) >= 2:
-                change = round((float(prices[0].close) - float(prices[1].close)) / float(prices[1].close) * 100, 2)
+            if close_now and close_prev and close_prev != 0:
+                change = round((close_now - close_prev) / close_prev * 100, 2)
                 total_change += change
                 change_count += 1
             stock_list.append({

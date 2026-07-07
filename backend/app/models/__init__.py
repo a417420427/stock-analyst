@@ -20,6 +20,8 @@ class User(Base):
     username = Column(String(64), unique=True, nullable=False, index=True)
     email = Column(String(128), unique=True, nullable=True)
     hashed_password = Column(String(256), nullable=False)
+    openid = Column(String(128), unique=True, nullable=True)  # 微信小程序 openid
+    phone = Column(String(16), nullable=True)  # 绑定手机号
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
