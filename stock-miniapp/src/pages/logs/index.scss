@@ -1,0 +1,66 @@
+.logs-page {
+  padding: 0 28rpx 40rpx;
+  background: var(--bg);
+  min-height: 100vh;
+}
+
+.log-card {
+  background: var(--card);
+  border-radius: 16rpx;
+  padding: 20rpx;
+  margin-bottom: 12rpx;
+  box-shadow: var(--shadow);
+  animation: fadeInUp 0.3s ease;
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.log-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.log-time {
+  font-size: 20rpx;
+  color: var(--text-light);
+}
+
+.log-level {
+  font-size: 20rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  margin-left: 8rpx;
+}
+
+.log-level.info { background: rgba(79,110,247,0.1); color: #4F6EF7; }
+.log-level.success { background: rgba(0,196,140,0.1); color: #00C48C; }
+.log-level.warning { background: rgba(255,185,70,0.1); color: #FFB946; }
+.log-level.error { background: rgba(255,107,107,0.1); color: #FF6B6B; }
+
+.log-action-tag {
+  font-size: 20rpx;
+  margin-left: 8rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  background: var(--bg);
+  color: var(--text-secondary);
+}
+
+.empty-logs {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 120rpx 0;
+  color: var(--text-secondary);
+}
+
+.empty-logs-icon {
+  font-size: 64rpx;
+  margin-bottom: 16rpx;
+}

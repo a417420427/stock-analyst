@@ -25,6 +25,7 @@
 .env
 .env.local
 .env.production
+.swc
 .idea/
 .venv/
 .vscode/

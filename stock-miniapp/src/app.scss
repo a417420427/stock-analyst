@@ -1,0 +1,66 @@
+/* 全局样式 */
+page {
+  --primary: #4F6EF7;
+  --primary-light: #7B93F7;
+  --primary-bg: #EEF1FF;
+  --bg: #F5F7FA;
+  --card: #FFFFFF;
+  --text: #1E222D;
+  --text-secondary: #8C94A8;
+  --text-light: #B0B8C8;
+  --border: #EAEDF4;
+  --shadow: 0 2rpx 16rpx rgba(79, 110, 247, 0.06);
+  --success: #00C48C;
+  --danger: #FF6B6B;
+  --warning: #FFB946;
+  --info: #4D7CFF;
+
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC', 'Helvetica Neue', sans-serif;
+  font-size: 28rpx;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  box-sizing: border-box;
+}
+
+view, text, scroll-view, input {
+  box-sizing: border-box;
+}
+
+/* 暗黑模式 */
+page.dark {
+  --bg: #14161A;
+  --card: #1E2128;
+  --text: #E8EAED;
+  --text-secondary: #7A7F8E;
+  --text-light: #555A66;
+  --border: #2A2D37;
+  --shadow: 0 2rpx 16rpx rgba(0, 0, 0, 0.3);
+  --primary-bg: #1E2550;
+}
+
+/* 动画 */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12rpx); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(-100rpx); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* 涨跌颜色 */
+.up { color: var(--danger); }
+.down { color: #00C48C; }
+.flat { color: var(--text-secondary); }
+
+/* 背景涨跌 */
+.bg-up { background: rgba(255, 107, 107, 0.08); }
+.bg-down { background: rgba(0, 196, 140, 0.08); }

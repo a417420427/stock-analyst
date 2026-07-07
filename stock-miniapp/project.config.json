@@ -1,0 +1,16 @@
+{
+  "miniprogramRoot": "./dist",
+  "projectname": "stock-miniapp",
+  "description": "多市场股票智能分析",
+  "appid": "wx8efec9576c10f892",
+  "setting": {
+    "urlCheck": false,
+    "es6": false,
+    "enhance": false,
+    "compileHotReLoad": false,
+    "postcss": false,
+    "minified": false,
+    "minifyWXML": true
+  },
+  "compileType": "miniprogram"
+}

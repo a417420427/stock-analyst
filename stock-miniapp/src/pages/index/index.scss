@@ -1,0 +1,171 @@
+/* 大盘行情页 */
+.dashboard {
+  height: 100vh;
+  padding: 0 24rpx;
+  padding-bottom: 140rpx;
+  background: var(--bg);
+  overflow-x: hidden;
+}
+
+.update-time {
+  display: block;
+  font-size: 22rpx;
+  color: var(--text-light);
+  text-align: center;
+  padding: 16rpx 0 8rpx;
+}
+
+/* 指数卡片 — 修正左右对齐 */
+.index-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-bottom: 28rpx;
+}
+
+.index-card {
+  display: flex;
+  align-items: center;
+  background: var(--card);
+  border-radius: 20rpx;
+  padding: 20rpx 24rpx;
+  box-shadow: var(--shadow);
+  animation: fadeInUp 0.3s ease;
+}
+
+.index-left {
+  flex: 0 0 130rpx;
+}
+
+.index-name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.index-symbol {
+  font-size: 18rpx;
+  color: var(--text-light);
+  margin-top: 2rpx;
+  white-space: nowrap;
+}
+
+.index-chart {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.index-right {
+  flex: 0 0 130rpx;
+  text-align: right;
+}
+
+.index-price {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text);
+  display: block;
+  white-space: nowrap;
+}
+
+.index-change {
+  font-size: 22rpx;
+  font-weight: 600;
+  margin-top: 4rpx;
+  white-space: nowrap;
+}
+
+/* 通用 Section */
+.section {
+  margin-bottom: 28rpx;
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 16rpx;
+  display: block;
+}
+
+/* 市场概览 */
+.market-overview {
+  display: flex;
+  gap: 16rpx;
+}
+
+.market-chip {
+  flex: 1;
+  background: var(--card);
+  border-radius: 16rpx;
+  padding: 20rpx;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.market-chip:active {
+  transform: scale(0.96);
+}
+
+.chip-label {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+}
+
+.chip-count {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  margin-top: 4rpx;
+}
+
+/* 快捷入口 */
+.quick-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.quick-action {
+  flex: 1;
+  background: var(--card);
+  border-radius: 20rpx;
+  padding: 28rpx;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.quick-action:active {
+  transform: scale(0.96);
+}
+
+.qa-icon {
+  font-size: 48rpx;
+  display: block;
+}
+
+.qa-label {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  margin-top: 8rpx;
+  display: block;
+}
+
+/* 加载 */
+.loading-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.7);
+  color: var(--text-secondary);
+  font-size: 28rpx;
+}

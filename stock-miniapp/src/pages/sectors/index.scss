@@ -1,0 +1,92 @@
+.sectors-page {
+  padding: 0 28rpx 40rpx;
+  background: var(--bg);
+  min-height: 100vh;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+.sector-card {
+  background: var(--card);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: var(--shadow);
+  animation: fadeInUp 0.3s ease;
+}
+
+.sector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.sector-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sector-change {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.sector-stats {
+  display: flex;
+  gap: 24rpx;
+  margin-bottom: 16rpx;
+}
+
+.sector-stat {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+
+  .sector-stat-value {
+    font-weight: 600;
+    color: var(--text);
+  }
+}
+
+.sector-stocks {
+  border-top: 2rpx solid var(--border);
+  padding-top: 12rpx;
+}
+
+.sector-stock-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8rpx 0;
+  font-size: 24rpx;
+}
+
+.sector-stock-name {
+  color: var(--text);
+  flex: 1;
+}
+
+.sector-stock-price {
+  color: var(--text-secondary);
+  margin: 0 16rpx;
+}
+
+.sector-stock-change {
+  font-weight: 600;
+  min-width: 70rpx;
+  text-align: right;
+}
+
+.empty-sector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 120rpx 0;
+  color: var(--text-secondary);
+}
+
+.empty-sector-icon {
+  font-size: 64rpx;
+  margin-bottom: 16rpx;
+}
