@@ -108,8 +108,8 @@ export interface AIPredictionResponse {
 export interface SimulatedAccount {
   id: number
   name: string
-  strategy_id?: number
-  strategy_name?: string
+  strategy_id?: number | null
+  strategy_name?: string | null
   initial_balance: number
   available_balance: number
   frozen_balance: number
@@ -117,9 +117,79 @@ export interface SimulatedAccount {
   total_asset: number
   total_pnl: number
   pnl_pct: number
-  is_ai_generated?: boolean
-  ai_prompt?: string
+  position_count?: number
+  is_ai_generated?: boolean | null
+  ai_prompt?: string | null
+  commission_rate?: number
   created_at?: string
+}
+
+export interface AccountSummary {
+  market_value: number
+  total_asset: number
+  total_pnl: number
+  pnl_pct: number
+  position_count: number
+}
+
+export interface AccountDetail {
+  account: SimulatedAccount
+  summary: AccountSummary
+  positions: Position[]
+}
+
+export interface Position {
+  stock_id: number
+  symbol: string
+  name: string
+  market: string
+  quantity: number
+  avg_cost: number
+  current_price: number
+  market_value: number
+  cost_total: number
+  pnl: number
+  pnl_pct: number
+  buy_count: number
+  sell_count: number
+}
+
+export interface Trade {
+  id: number
+  stock_id: number
+  symbol: string
+  name: string
+  market: string
+  side: 'buy' | 'sell'
+  quantity: number
+  price: number
+  total: number
+  commission: number
+  order_type: string
+  traded_at: string
+  note: string | null
+}
+
+export interface AISuggestion {
+  name: string
+  description: string
+  risk_level: string
+  estimated_return: string | null
+  stocks: { stock_id: number; symbol: string; name: string; weight: number; reason: string }[]
+  advice: string
+}
+
+export interface AIResult {
+  prompt: string
+  initial_balance: number
+  suggestion: AISuggestion
+}
+
+export interface AICreateResult {
+  account: SimulatedAccount
+  suggestion: AISuggestion
+  trades: { stock_id: number; symbol: string; name: string; quantity: number; exec_price: number; total: number; commission: number; weight: number }[]
+  total_invested: number
 }
 
 // ===== 行业板块 =====

@@ -3,11 +3,12 @@ import Taro from '@tarojs/taro'
 import type {
   Stock, StockRealtime, PriceData, IndexData,
   ComprehensiveAnalysis, AIAnalysisResponse, AIPredictionResponse,
-  SimulatedAccount, SectorData, ActivityLog, User
+  SimulatedAccount, AccountDetail, Trade, SectorData, ActivityLog, User,
+  AIResult, AICreateResult
 } from '../types'
 
 // 服务端 API 地址
-const BASE_URL = 'http://39.106.172.134:8000/api/v1'
+const BASE_URL = 'http://127.0.0.1:8000/api/v1'
 
 // Token 管理
 function getToken(): string | null {
@@ -175,6 +176,53 @@ export async function getSectors(): Promise<SectorData[]> {
 // ===== 模拟交易 =====
 export async function getAccounts(): Promise<SimulatedAccount[]> {
   return request<SimulatedAccount[]>('GET', '/portfolio/accounts')
+}
+
+export async function createAccount(name: string, initialBalance: number = 1000000): Promise<SimulatedAccount> {
+  return request<SimulatedAccount>('POST', '/portfolio/accounts', { name, initial_balance: initialBalance })
+}
+
+export async function getAccountDetail(accountId: number): Promise<AccountDetail> {
+  return request<AccountDetail>('GET', `/portfolio/accounts/${accountId}`)
+}
+
+export async function getAccountTrades(accountId: number): Promise<Trade[]> {
+  return request<Trade[]>('GET', `/portfolio/accounts/${accountId}/trades`)
+}
+
+export async function createTrade(
+  accountId: number,
+  params: { stock_id: number; side: string; quantity: number; price?: number; order_type?: string; note?: string }
+): Promise<any> {
+  const query = Object.entries(params)
+    .filter(([_, v]) => v !== undefined && v !== '')
+    .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+    .join('&')
+  return request('POST', `/portfolio/accounts/${accountId}/trades?${query}`)
+}
+
+export async function deposit(accountId: number, amount: number): Promise<any> {
+  return request('POST', `/portfolio/accounts/${accountId}/deposit?amount=${amount}`)
+}
+
+export async function withdraw(accountId: number, amount: number): Promise<any> {
+  return request('POST', `/portfolio/accounts/${accountId}/withdraw?amount=${amount}`)
+}
+
+export async function resetAccount(accountId: number): Promise<any> {
+  return request('DELETE', `/portfolio/accounts/${accountId}`)
+}
+
+export async function deleteAccount(accountId: number): Promise<any> {
+  return request('DELETE', `/portfolio/accounts/${accountId}/delete`)
+}
+
+export async function aiGenerate(prompt: string, initialBalance: number = 1000000): Promise<AIResult> {
+  return request<AIResult>('POST', `/portfolio/ai-generate?prompt=${encodeURIComponent(prompt)}&initial_balance=${initialBalance}`, undefined, { timeout: 120000 })
+}
+
+export async function aiCreate(prompt: string, initialBalance: number = 1000000): Promise<AICreateResult> {
+  return request<AICreateResult>('POST', `/portfolio/ai-create?prompt=${encodeURIComponent(prompt)}&initial_balance=${initialBalance}`, undefined, { timeout: 120000 })
 }
 
 // ===== 活动日志 =====
