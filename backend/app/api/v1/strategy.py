@@ -4,21 +4,32 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.models import Strategy, StrategyTemplate, StrategyTrigger, Stock
+from app.models import Strategy, StrategyTemplate, StrategyTrigger, Stock, User
 from app.schemas import StrategyCreate, StrategyOut, StrategyTriggerOut, StrategyUpdate
+from app.api.v1.auth import get_current_user
 
 router = APIRouter()
 
 
 @router.get("/", response_model=list[StrategyOut])
-async def list_strategies(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Strategy))
+async def list_strategies(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Strategy).where(Strategy.user_id == user.id)
+    )
     return [StrategyOut.model_validate(s) for s in result.scalars().all()]
 
 
 @router.post("/", response_model=StrategyOut)
-async def create_strategy(body: StrategyCreate, db: AsyncSession = Depends(get_db)):
+async def create_strategy(
+    body: StrategyCreate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     strategy = Strategy(
+        user_id=user.id,
         name=body.name,
         description=body.description,
         definition=body.definition.model_dump(),
@@ -32,16 +43,31 @@ async def create_strategy(body: StrategyCreate, db: AsyncSession = Depends(get_d
 
 
 @router.get("/{strategy_id}", response_model=StrategyOut)
-async def get_strategy(strategy_id: int, db: AsyncSession = Depends(get_db)):
-    strategy = await db.get(Strategy, strategy_id)
+async def get_strategy(
+    strategy_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Strategy).where(Strategy.id == strategy_id, Strategy.user_id == user.id)
+    )
+    strategy = result.scalar_one_or_none()
     if not strategy:
         raise HTTPException(404, "策略不存在")
     return StrategyOut.model_validate(strategy)
 
 
 @router.patch("/{strategy_id}", response_model=StrategyOut)
-async def update_strategy(strategy_id: int, body: StrategyUpdate, db: AsyncSession = Depends(get_db)):
-    strategy = await db.get(Strategy, strategy_id)
+async def update_strategy(
+    strategy_id: int,
+    body: StrategyUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Strategy).where(Strategy.id == strategy_id, Strategy.user_id == user.id)
+    )
+    strategy = result.scalar_one_or_none()
     if not strategy:
         raise HTTPException(404, "策略不存在")
 
@@ -57,8 +83,15 @@ async def update_strategy(strategy_id: int, body: StrategyUpdate, db: AsyncSessi
 
 
 @router.delete("/{strategy_id}")
-async def delete_strategy(strategy_id: int, db: AsyncSession = Depends(get_db)):
-    strategy = await db.get(Strategy, strategy_id)
+async def delete_strategy(
+    strategy_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Strategy).where(Strategy.id == strategy_id, Strategy.user_id == user.id)
+    )
+    strategy = result.scalar_one_or_none()
     if not strategy:
         raise HTTPException(404, "策略不存在")
     await db.delete(strategy)
@@ -66,7 +99,19 @@ async def delete_strategy(strategy_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{strategy_id}/triggers", response_model=list[StrategyTriggerOut])
-async def get_triggers(strategy_id: int, limit: int = 20, db: AsyncSession = Depends(get_db)):
+async def get_triggers(
+    strategy_id: int,
+    limit: int = 20,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    # 验证策略属于当前用户
+    result = await db.execute(
+        select(Strategy).where(Strategy.id == strategy_id, Strategy.user_id == user.id)
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(404, "策略不存在")
+
     result = await db.execute(
         select(StrategyTrigger)
         .where(StrategyTrigger.strategy_id == strategy_id)
@@ -77,12 +122,19 @@ async def get_triggers(strategy_id: int, limit: int = 20, db: AsyncSession = Dep
 
 
 @router.post("/{strategy_id}/test-trigger")
-async def test_strategy_trigger(strategy_id: int, db: AsyncSession = Depends(get_db)):
+async def test_strategy_trigger(
+    strategy_id: int,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     """测试策略触发 — 模拟触发并推送"""
     from app.services.strategy import StrategyEngine
     from app.services.push import PushRouter
 
-    strategy = await db.get(Strategy, strategy_id)
+    result = await db.execute(
+        select(Strategy).where(Strategy.id == strategy_id, Strategy.user_id == user.id)
+    )
+    strategy = result.scalar_one_or_none()
     if not strategy:
         raise HTTPException(404, "策略不存在")
 
@@ -105,7 +157,7 @@ async def test_strategy_trigger(strategy_id: int, db: AsyncSession = Depends(get
         )
         router = PushRouter(db)
         push_results = await router.push(
-            user_id=1, title=f"测试: {strategy.name}", body=body, level="normal", trigger_id=trigger.id
+            user_id=user.id, title=f"测试: {strategy.name}", body=body, level="normal", trigger_id=trigger.id
         )
         results.extend(push_results)
         await StrategyEngine(db).execute_actions(trigger)
@@ -114,7 +166,7 @@ async def test_strategy_trigger(strategy_id: int, db: AsyncSession = Depends(get
     return {"message": f"触发 {len(triggers)} 个信号", "push_results": results}
 
 
-# ─── 策略模板 ──────────────────────────────────
+# ─── 策略模板（全局共享）─────────────────────────
 
 @router.get("/templates/all")
 async def list_templates(db: AsyncSession = Depends(get_db)):
@@ -139,10 +191,7 @@ async def init_default_templates(db: AsyncSession = Depends(get_db)):
             description="短期均线上穿长期均线时买入信号",
             category="trend",
             definition={
-                "conditions": [{
-                    "type": "ma_cross",
-                    "params": {"fast_period": 5, "slow_period": 20, "direction": "golden"}
-                }],
+                "conditions": [{"type": "ma_cross", "params": {"fast_period": 5, "slow_period": 20, "direction": "golden"}}],
                 "logic": "AND",
                 "actions": [{"type": "notify", "channel": "feishu"}],
                 "cooldown_minutes": 60,
@@ -153,10 +202,7 @@ async def init_default_templates(db: AsyncSession = Depends(get_db)):
             description="MACD DIF 上穿 DEA 时触发",
             category="trend",
             definition={
-                "conditions": [{
-                    "type": "macd_cross",
-                    "params": {"direction": "golden"}
-                }],
+                "conditions": [{"type": "macd_cross", "params": {"direction": "golden"}}],
                 "logic": "AND",
                 "actions": [{"type": "notify", "channel": "feishu"}],
                 "cooldown_minutes": 60,
@@ -167,10 +213,7 @@ async def init_default_templates(db: AsyncSession = Depends(get_db)):
             description="RSI 低于 30 后回升至 35 以上时触发",
             category="mean_reversion",
             definition={
-                "conditions": [{
-                    "type": "rsi_threshold",
-                    "params": {"direction": "oversold", "threshold": 30}
-                }],
+                "conditions": [{"type": "rsi_threshold", "params": {"direction": "oversold", "threshold": 30}}],
                 "logic": "AND",
                 "actions": [{"type": "notify", "channel": "feishu"}],
                 "cooldown_minutes": 120,

@@ -44,6 +44,16 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
 
+    # 微信小程序
+    wx_appid: str = ""
+    wx_secret: str = ""
+
+    # 阿里云短信
+    aliyun_access_key_id: str = ""
+    aliyun_access_key_secret: str = ""
+    sms_sign_name: str = "恒创联众"
+    sms_template_code: str = "SMS_100001"
+
     # JWT
     secret_key: str = "change-me-to-a-random-string"
     algorithm: str = "HS256"

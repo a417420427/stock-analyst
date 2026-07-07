@@ -8,7 +8,7 @@ from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.models import SimulatedAccount, SimulatedTrade, Stock, Price, Strategy
+from app.models import SimulatedAccount, SimulatedTrade, Stock, Price, Strategy, User
 
 router = APIRouter()
 
@@ -22,9 +22,9 @@ STAMP_DUTY_A = 0.0005  # A股印花税 万5 (卖出)
 
 # ─── 日志辅助 ─────────────────────────────────────
 
-async def _log(db: AsyncSession, action: str, level: str, title: str, detail: dict = None):
+async def _log(db: AsyncSession, user_id: int, action: str, level: str, title: str, detail: dict = None):
     from app.models import ActivityLog
-    log = ActivityLog(action=action, level=level, title=title, detail=detail)
+    log = ActivityLog(user_id=user_id, action=action, level=level, title=title, detail=detail)
     db.add(log)
 
 
