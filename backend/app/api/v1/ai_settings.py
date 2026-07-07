@@ -6,6 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.api.v1.auth import get_current_user
+from app.models import User
 from app.models import AISettings
 from app.schemas import AISettingsCreate, AISettingsOut
 
@@ -20,9 +22,9 @@ DEFAULT_API_BASES = {
 
 
 @router.get("/settings", response_model=Optional[AISettingsOut])
-async def get_ai_settings(db: AsyncSession = Depends(get_db)):
+async def get_ai_settings(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """获取当前 AI 配置"""
-    result = await db.execute(select(AISettings).where(AISettings.is_active == True).limit(1))
+    result = await db.execute(select(AISettings).where(AISettings.is_active == True, AISettings.user_id == user.id).limit(1))
     setting = result.scalar_one_or_none()
     if not setting:
         return None
@@ -30,10 +32,10 @@ async def get_ai_settings(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/settings", response_model=AISettingsOut)
-async def save_ai_settings(body: AISettingsCreate, db: AsyncSession = Depends(get_db)):
+async def save_ai_settings(body: AISettingsCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """保存 AI 配置（替换旧的活跃配置）"""
     # 停用旧的
-    result = await db.execute(select(AISettings).where(AISettings.is_active == True))
+    result = await db.execute(select(AISettings).where(AISettings.is_active == True, AISettings.user_id == user.id))
     for old in result.scalars().all():
         old.is_active = False
 
@@ -43,6 +45,7 @@ async def save_ai_settings(body: AISettingsCreate, db: AsyncSession = Depends(ge
         api_base = DEFAULT_API_BASES[body.provider]
 
     setting = AISettings(
+        user_id=user.id,
         provider=body.provider,
         model=body.model,
         api_key=body.api_key,
@@ -54,7 +57,7 @@ async def save_ai_settings(body: AISettingsCreate, db: AsyncSession = Depends(ge
 
 
 @router.delete("/settings/{setting_id}")
-async def delete_ai_setting(setting_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_ai_setting(setting_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     setting = await db.get(AISettings, setting_id)
     if not setting:
         raise HTTPException(404, "配置不存在")
