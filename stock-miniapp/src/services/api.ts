@@ -100,9 +100,9 @@ export function logout() {
 }
 
 // ===== 微信手机号绑定 =====
-export async function bindPhone(code: string): Promise<{ message: string; phone: string }> {
+export async function bindPhone(phone: string, code: string): Promise<{ message: string; phone: string }> {
   const data = await request<{ message: string; phone: string }>(
-    'POST', `/auth/bind-phone?code=${encodeURIComponent(code)}`
+    'POST', `/auth/bind-phone?phone=${encodeURIComponent(phone)}&code=${encodeURIComponent(code)}`
   )
   return data
 }

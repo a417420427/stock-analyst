@@ -15,10 +15,13 @@ export default function StockDetail() {
   const [prices, setPrices] = useState<PriceData[]>([])
   const [days, setDays] = useState(60)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  const [isLoggedIn, setIsLoggedIn] = useState(!!Taro.getStorageSync("stock_token"))
 
   // AI 状态
   const [aiSummary, setAiSummary] = useState<AIAnalysisResponse | null>(null)
-  const [aiPrediction, setAiPrediction] = useState<AIPredictionResponse | null>(null)
+  const [aiPrediction, setAIPrediction] = useState<AIPredictionResponse | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiPredLoading, setAiPredLoading] = useState(false)
 
@@ -30,7 +33,12 @@ export default function StockDetail() {
   ]
 
   useLoad(async () => {
-    if (!stockId) return
+    if (!stockId || isNaN(stockId)) {
+      setLoadError('参数错误：无效的股票ID')
+      setLoading(false)
+      return
+    }
+    setIsLoggedIn(!!(Taro.getStorageSync("stock_token")))
     await loadData(days)
   })
 
@@ -41,26 +49,40 @@ export default function StockDetail() {
 
   const loadData = async (d: number) => {
     setLoading(true)
+    setLoadError(null)
     try {
       const [comp, priceData] = await Promise.all([
-        api.getComprehensiveAnalysis(stockId).catch(() => null),
-        api.getStockPrices(stockId, d).catch(() => []),
+        api.getComprehensiveAnalysis(stockId).catch((e) => {
+          console.error('综合分析加载失败', e)
+          return null
+        }),
+        api.getStockPrices(stockId, d).catch((e) => {
+          console.error('价格数据加载失败', e)
+          return []
+        }),
       ])
+      if (comp === null && priceData.length === 0) {
+        setLoadError('股票数据加载失败，请下拉刷新重试')
+      }
       setAnalysis(comp)
       setPrices(priceData)
-    } catch {
-      Taro.showToast({ title: '加载失败', icon: 'none' })
+    } catch (e) {
+      console.error('loadData error', e)
+      setLoadError('加载失败，请检查网络后重试')
     }
     setLoading(false)
   }
 
   const changeTimeframe = (d: number) => {
     setDays(d)
-    api.getStockPrices(stockId, d).then(setPrices).catch(() => {})
+    setLoadError(null)
+    api.getStockPrices(stockId, d).then(setPrices).catch(() => {
+      Taro.showToast({ title: '价格数据加载失败', icon: 'none' })
+    })
   }
 
   const handleAISummary = async () => {
-    if (aiSummary) return // 已有结果
+    if (aiSummary) return
     setAiLoading(true)
     try {
       const res = await api.getAISummary(stockId)
@@ -76,24 +98,37 @@ export default function StockDetail() {
     setAiPredLoading(true)
     try {
       const res = await api.getAIPrediction(stockId)
-      setAiPrediction(res)
+      setAIPrediction(res)
     } catch {
       Taro.showToast({ title: 'AI 预测失败', icon: 'none' })
     }
     setAiPredLoading(false)
   }
 
-  const stockInfo = analysis?.stock
+  // 错误状态
+  if (loadError) {
+    return (
+      <View className='detail-error'>
+        <Text className='detail-error-icon'>⚠️</Text>
+        <Text className='detail-error-text'>{loadError}</Text>
+        <View className='detail-error-btn' onClick={() => loadData(days)}>重新加载</View>
+      </View>
+    )
+  }
+
+  // 加载中
   if (loading) {
     return <View className='detail-loading'>加载中...</View>
   }
 
+  const stockInfo = analysis?.stock
   const trendScore = analysis?.trend_score
   const getTrendColor = (score: number) => {
     if (score > 60) return '#FF6B6B'
     if (score > 40) return '#FFB946'
     return '#00C48C'
   }
+  const trendBarWidth = (score: number) => `${Math.max(0, Math.min(100, score))}%`
 
   const prediction = aiPrediction?.prediction
 
@@ -208,7 +243,7 @@ export default function StockDetail() {
                   <View
                     className='trend-bar-fill'
                     style={{
-                      width: `${item.score}%`,
+                      width: trendBarWidth(item.score),
                       background: getTrendColor(item.score),
                     }}
                   />
@@ -229,7 +264,15 @@ export default function StockDetail() {
           <Text className='ai-badge'>Powered by API</Text>
         </View>
 
-        {!aiSummary && !aiLoading && (
+        {isLoggedIn === false ? (
+          <View className='ai-phone-lock'>
+            <Text className='ai-lock-icon'>🔐</Text>
+            <Text className='ai-lock-text'>请先登录使用 AI 功能</Text>
+            <View className='ai-lock-btn' onClick={() => Taro.switchTab({ url: '/pages/login/index' })}>
+              去登录
+            </View>
+          </View>
+        ) : !aiSummary && !aiLoading && (
           <View className='ai-btn' onClick={handleAISummary}>
             生成 AI 分析
           </View>

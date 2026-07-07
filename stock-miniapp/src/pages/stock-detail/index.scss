@@ -258,6 +258,38 @@
   opacity: 0.85;
 }
 
+/* AI 锁定状态 */
+.ai-phone-lock {
+  text-align: center;
+  padding: 32rpx 0;
+}
+
+.ai-lock-icon {
+  font-size: 48rpx;
+  display: block;
+  margin-bottom: 12rpx;
+}
+
+.ai-lock-text {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.ai-lock-btn {
+  display: inline-block;
+  padding: 16rpx 48rpx;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 40rpx;
+  font-size: 26rpx;
+}
+
+.ai-lock-btn:active {
+  opacity: 0.85;
+}
+
 /* 预测卡片 */
 .prediction-card {
   margin-top: 16rpx;
@@ -286,6 +318,41 @@
   border-radius: 10rpx;
   font-size: 22rpx;
   color: var(--danger);
+}
+
+/* 错误状态 */
+.detail-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  padding: 40rpx;
+}
+
+.detail-error-icon {
+  font-size: 64rpx;
+  margin-bottom: 20rpx;
+}
+
+.detail-error-text {
+  font-size: 28rpx;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.6;
+  margin-bottom: 32rpx;
+}
+
+.detail-error-btn {
+  padding: 16rpx 48rpx;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 40rpx;
+  font-size: 26rpx;
+}
+
+.detail-error-btn:active {
+  opacity: 0.85;
 }
 
 /* 加载 */

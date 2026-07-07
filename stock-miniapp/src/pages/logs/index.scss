@@ -20,7 +20,7 @@
   margin-bottom: 8rpx;
 }
 
-.log-title {
+.log-action {
   font-size: 26rpx;
   font-weight: 600;
   color: var(--text);
@@ -31,25 +31,12 @@
   color: var(--text-light);
 }
 
-.log-level {
-  font-size: 20rpx;
-  padding: 2rpx 10rpx;
-  border-radius: 6rpx;
-  margin-left: 8rpx;
-}
-
-.log-level.info { background: rgba(79,110,247,0.1); color: #4F6EF7; }
-.log-level.success { background: rgba(0,196,140,0.1); color: #00C48C; }
-.log-level.warning { background: rgba(255,185,70,0.1); color: #FFB946; }
-.log-level.error { background: rgba(255,107,107,0.1); color: #FF6B6B; }
-
-.log-action-tag {
-  font-size: 20rpx;
-  margin-left: 8rpx;
-  padding: 2rpx 10rpx;
-  border-radius: 6rpx;
-  background: var(--bg);
+.log-detail {
+  font-size: 22rpx;
   color: var(--text-secondary);
+  line-height: 1.5;
+  display: block;
+  word-break: break-all;
 }
 
 .empty-logs {
@@ -63,4 +50,24 @@
 .empty-logs-icon {
   font-size: 64rpx;
   margin-bottom: 16rpx;
+}
+
+.empty-logs-text {
+  font-size: 26rpx;
+  color: var(--text-secondary);
+  margin-bottom: 20rpx;
+  display: block;
+}
+
+.empty-logs-btn {
+  display: inline-block;
+  padding: 16rpx 48rpx;
+  background: var(--primary);
+  color: #fff;
+  border-radius: 40rpx;
+  font-size: 26rpx;
+}
+
+.empty-logs-btn:active {
+  opacity: 0.85;
 }
