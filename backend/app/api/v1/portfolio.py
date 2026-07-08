@@ -488,8 +488,11 @@ async def ai_generate_portfolio(
     prompt: str = Query(..., description="选股需求描述"),
     initial_balance: float = Query(1000000.0, ge=10000),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     """AI 选股 — 生成投资组合建议"""
+    from app.utils.ai_quota import check_and_increment
+    await check_and_increment(user.id, "ai_pick", db)
     from app.services.ai import AIService
 
     # 获取全部股票数据
@@ -526,6 +529,9 @@ async def ai_create_portfolio(
     user: User = Depends(get_current_user),
 ):
     """AI 选股并直接创建模拟账户+买入"""
+    from app.utils.ai_quota import check_and_increment
+    await check_and_increment(user.id, "ai_pick", db)
+
     from app.services.ai import AIService
 
     result = await db.execute(select(Stock).order_by(Stock.id))
@@ -545,6 +551,7 @@ async def ai_create_portfolio(
 
     # 创建模拟账户
     account = SimulatedAccount(
+        user_id=user.id,
         name=name,
         initial_balance=Decimal(str(initial_balance)),
         available_balance=Decimal(str(initial_balance)),
@@ -668,6 +675,9 @@ async def ai_auto_pick(
     user: User = Depends(get_current_user),
 ):
     """AI 自动选股 — 预测全市场选出明日最佳 Top N，自动创建组合并买入"""
+    from app.utils.ai_quota import check_and_increment
+    await check_and_increment(user.id, "ai_pick", db)
+
     from app.services.ai import AIService
     from datetime import date
 
@@ -689,6 +699,7 @@ async def ai_auto_pick(
     name = f"AI自动选股-{today}"
 
     account = SimulatedAccount(
+        user_id=user.id,
         name=name,
         initial_balance=Decimal(str(initial_balance)),
         available_balance=Decimal(str(initial_balance)),

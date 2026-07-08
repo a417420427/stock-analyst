@@ -366,3 +366,20 @@ class AISettings(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AIUsage(Base):
+    """AI 调用配额 — 按用户+日期统计"""
+    __tablename__ = "ai_usage"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    date = Column(String(10), nullable=False)  # YYYY-MM-DD
+    action = Column(String(32), nullable=False)  # summary / prediction / plan / ai_pick
+    count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "date", "action", name="uq_ai_usage_user_date_action"),
+    )

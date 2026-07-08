@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
 
+    # AI 配额（每天每个动作的次数，0=不限）
+    # action: ai_pick（AI选股）, summary（AI分析）, prediction（AI预测）, plan（AI策略）
+    ai_quota: dict = {
+        "ai_pick": 5,
+        "summary": 30,
+        "prediction": 10,
+        "plan": 10,
+    }
+
     # 微信小程序
     wx_appid: str = "wx91ab130a04745bd8"
     wx_secret: str = "661b01050954c8440e016f8d4b1a9607"

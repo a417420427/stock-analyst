@@ -3,9 +3,11 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
-from app.models import Stock, Price
+from app.models import Stock, Price, User, AIUsage
 from app.services.ai import AIService
+from app.api.v1.auth import get_current_user
 
 router = APIRouter()
 ai_svc = AIService()
@@ -70,7 +72,13 @@ async def generate_digest(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/predict/{stock_id}")
-async def ai_predict_stock(stock_id: int, db: AsyncSession = Depends(get_db)):
+async def ai_predict_stock(
+    stock_id: int,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    from app.utils.ai_quota import check_and_increment
+    await check_and_increment(user.id, "prediction", db)
     """AI 个股涨跌预测"""
     stock = await db.get(Stock, stock_id)
     if not stock:
@@ -90,3 +98,41 @@ async def ai_predict_stock(stock_id: int, db: AsyncSession = Depends(get_db)):
         "stock": {"id": stock.id, "symbol": stock.symbol, "name": stock.name, "market": stock.market},
         "prediction": prediction,
     }
+
+
+@router.get("/quota")
+async def get_ai_quota(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取当前用户的 AI 配额使用情况"""
+    from datetime import datetime
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+
+    result = await db.execute(
+        select(AIUsage).where(
+            AIUsage.user_id == user.id,
+            AIUsage.date == today,
+        )
+    )
+    usage_rows = list(result.scalars().all())
+
+    usage_map = {r.action: r.count for r in usage_rows}
+
+    quotas = []
+    for action, limit in settings.ai_quota.items():
+        used = usage_map.get(action, 0)
+        quotas.append({
+            "action": action,
+            "label": {
+                "ai_pick": "AI 选股",
+                "summary": "AI 分析",
+                "prediction": "AI 预测",
+                "plan": "AI 策略",
+            }.get(action, action),
+            "used": used,
+            "limit": limit,
+            "remaining": max(0, limit - used),
+        })
+
+    return {"date": today, "quotas": quotas}
