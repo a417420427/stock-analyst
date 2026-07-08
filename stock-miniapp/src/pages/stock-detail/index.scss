@@ -356,6 +356,74 @@
 }
 
 /* 加载 */
+/* ── AI 分析卡片 ── */
+
+.ai-content {
+  padding: 24rpx;
+  background: var(--card-bg, #1e1e2e);
+  border-radius: 16rpx;
+  margin-top: 16rpx;
+}
+
+.analysis-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.analysis-trend {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.analysis-score {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.analysis-summary {
+  padding: 16rpx;
+  background: var(--bg-secondary, #2a2a3e);
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
+  margin-bottom: 16rpx;
+  color: var(--text-primary, #e0e0e0);
+}
+
+.analysis-levels {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 16rpx;
+}
+
+.analysis-levels .analysis-label {
+  font-size: 26rpx;
+  color: var(--text-secondary, #888);
+}
+
+.analysis-levels .analysis-value {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-primary, #e0e0e0);
+  margin-right: 16rpx;
+}
+
+.analysis-warning {
+  padding: 12rpx 16rpx;
+  background: rgba(255, 185, 70, 0.12);
+  border-radius: 10rpx;
+}
+
+.analysis-warning-text {
+  font-size: 24rpx;
+  color: #FFB946;
+  line-height: 1.5;
+}
+
+/* 加载 */
 .detail-loading {
   display: flex;
   align-items: center;

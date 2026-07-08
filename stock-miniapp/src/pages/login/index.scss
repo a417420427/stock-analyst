@@ -237,6 +237,88 @@
   color: var(--text-light);
 }
 
+.quota-card {
+  background: var(--card);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: var(--shadow);
+}
+
+.quota-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.quota-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.quota-date {
+  font-size: 20rpx;
+  color: var(--text-light);
+}
+
+.quota-loading {
+  font-size: 22rpx;
+  color: var(--text-light);
+  display: block;
+  text-align: center;
+  padding: 16rpx 0;
+}
+
+.quota-row {
+  margin-bottom: 14rpx;
+}
+
+.quota-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6rpx;
+}
+
+.quota-label {
+  font-size: 24rpx;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.quota-count {
+  font-size: 22rpx;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+.quota-remaining {
+  color: var(--text-light);
+  font-size: 20rpx;
+}
+
+.quota-bar-bg {
+  height: 12rpx;
+  background: var(--bg);
+  border-radius: 6rpx;
+  overflow: hidden;
+}
+
+.quota-bar {
+  height: 100%;
+  border-radius: 6rpx;
+  transition: width 0.3s ease;
+}
+
+.quota-unlimited {
+  font-size: 22rpx;
+  color: #52c41a;
+  display: block;
+  text-align: right;
+}
+
 .logout-btn {
   background: var(--card);
   border-radius: 20rpx;

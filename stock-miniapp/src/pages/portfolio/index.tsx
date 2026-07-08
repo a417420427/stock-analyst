@@ -242,9 +242,11 @@ export default function PortfolioPage() {
     try {
       const res = await api.aiCreate(aiResult.prompt, aiResult.initial_balance)
       setAiCreateResult(res)
+      Taro.showToast({ title: '组合创建成功，正在刷新...', icon: 'success' })
       await loadAccounts()
     } catch (e: any) {
-      Taro.showToast({ title: e?.message || '创建失败', icon: 'none' })
+      const msg = e?.message || '创建失败'
+      Taro.showToast({ title: msg, icon: 'none', duration: 3000 })
       setAiStep('preview')
     }
   }

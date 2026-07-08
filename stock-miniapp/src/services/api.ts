@@ -168,6 +168,11 @@ export async function aiNLQuery(query: string): Promise<{ query: string; answer:
   return request('POST', `/ai/query?query=${encodeURIComponent(query)}`, undefined, { timeout: 60000 })
 }
 
+// ===== AI 配额 =====
+export async function getAIQuota(): Promise<{ date: string; quotas: { action: string; label: string; used: number; limit: number; remaining: number }[] }> {
+  return request('GET', '/ai/quota')
+}
+
 // ===== 行业板块 =====
 export async function getSectors(): Promise<SectorData[]> {
   return request<SectorData[]>('GET', '/analysis/sectors')

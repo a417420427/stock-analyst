@@ -94,9 +94,21 @@ export interface AIPrediction {
   risks: string[]
 }
 
+// AI 个股分析 — summary 接口返回的 analysis 是对象
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface AIAnalysisContent {
+  trend: string
+  support: number
+  resistance: number
+  risk_warning: string
+  score: number
+  summary: string
+  [key: string]: unknown
+}
+
 export interface AIAnalysisResponse {
   stock: { id: number; symbol: string; name: string }
-  analysis: string
+  analysis: AIAnalysisContent
 }
 
 export interface AIPredictionResponse {

@@ -3,258 +3,211 @@ import { useRouter, useLoad, usePullDownRefresh } from '@tarojs/taro'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '../../services/api'
-import KLineChart from '../../components/KLineChart'
-import type { PriceData, ComprehensiveAnalysis, AIAnalysisResponse, AIPredictionResponse } from '../../types'
+import type { ComprehensiveAnalysis, AIAnalysisContent, AIAnalysisResponse, AIPredictionResponse, TrendScore } from '../../types'
 import './index.scss'
+
+// ─── helpers ───────────────────────────────────────────────
+
+/** 安全取数值，为空时返回后备值 */
+const num = (v: unknown, fallback: '--' | 0 = '--'): number | '--' | 0 => {
+  if (v == null) return fallback
+  const n = Number(v)
+  return !isNaN(n) ? n : fallback
+}
+
+/** 格式化：xx.xx */
+const fmt2 = (v: unknown): string | '--' => {
+  const n = num(v)
+  return typeof n === 'number' ? n.toFixed(2) : n
+}
+
+/** 格式化：xx.x%  (输入为小数，如 0.25 → '25.0%') */
+const fmtPct = (v: unknown, decimals = 1): string | '--' => {
+  const n = num(v)
+  return typeof n === 'number' ? (n * 100).toFixed(decimals) + '%' : n
+}
+
+/** 格式化：亿市值 (输入为元) */
+const fmtCap = (v: unknown): string | '--' => {
+  const n = num(v)
+  return typeof n === 'number' && n > 0 ? (n / 1e8).toFixed(1) + '亿' : (n+'')
+}
+
+/** 价格颜色 */
+const priceColor = (pct: number | undefined | null): string | undefined => {
+  if (pct == null) return undefined
+  return pct >= 0 ? '#FF6B6B' : '#00C48C'
+}
+
+/** 趋势颜色 */
+const trendColor = (score: number): string =>
+  score > 60 ? '#FF6B6B' : score > 40 ? '#FFB946' : '#00C48C'
+
+/** 看涨/跌/震荡颜色 */
+const directionColor = (d: string): string =>
+  d === '看涨' ? '#FF6B6B' : d === '看跌' ? '#00C48C' : '#FFB946'
+
+/** 变化的符号前缀 */
+const signPrefix = (v: number | undefined | null): string =>
+  v != null && v >= 0 ? '+' : ''
+
+/** 变化的 CSS 类名 */
+const changeDirClass = (v: number | undefined | null): string => {
+  if (v == null) return ''
+  return v >= 0 ? 'up' : 'down'
+}
+
+/** 带符号的格式化变化百分比 */
+const formatChangePct = (v: number | undefined | null): string => {
+  if (v == null) return '--'
+  return `${signPrefix(v)}${v.toFixed(2)}%`
+}
+
+/** 置信度中文标签 */
+const confidenceLabel = (c: string): string => {
+  if (c === '高') return '高'
+  if (c === '中') return '中'
+  return '低'
+}
+
+// ─── 市场标签 ──────────────────────────────────────────────
+
+const MarketBadge = ({ market }: { market?: string }) => {
+  if (!market) return null
+  const label =
+    market === 'A' ? 'A股' : market === 'HK' ? '港股' : market === 'US' ? '美股' : market
+  return <Text className={`stock-detail-market ${market.toLowerCase()}`}>{label}</Text>
+}
+
+// ─── 组件 ──────────────────────────────────────────────────
 
 export default function StockDetail() {
   const router = useRouter()
   const stockId = Number(router.params.stockId)
 
   const [analysis, setAnalysis] = useState<ComprehensiveAnalysis | null>(null)
-  const [prices, setPrices] = useState<PriceData[]>([])
-  const [days, setDays] = useState(60)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-
-  const [isLoggedIn, setIsLoggedIn] = useState(!!Taro.getStorageSync("stock_token"))
-
-  // AI 状态
+  const [isLoggedIn, setIsLoggedIn] = useState(!!Taro.getStorageSync('stock_token'))
   const [aiSummary, setAiSummary] = useState<AIAnalysisResponse | null>(null)
   const [aiPrediction, setAIPrediction] = useState<AIPredictionResponse | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiPredLoading, setAiPredLoading] = useState(false)
 
-  const timeframes = [
-    { label: '1月', days: 30 },
-    { label: '3月', days: 90 },
-    { label: '6月', days: 180 },
-    { label: '1年', days: 365 },
-  ]
-
   useLoad(async () => {
     if (!stockId || isNaN(stockId)) {
-      setLoadError('参数错误：无效的股票ID')
+      setLoadError('参数错误')
       setLoading(false)
       return
     }
-    setIsLoggedIn(!!(Taro.getStorageSync("stock_token")))
-    await loadData(days)
+    setIsLoggedIn(!!Taro.getStorageSync('stock_token'))
+    await loadData()
   })
 
   usePullDownRefresh(async () => {
-    await loadData(days)
+    await loadData()
     Taro.stopPullDownRefresh()
   })
 
-  const loadData = async (d: number) => {
+  const loadData = async () => {
     setLoading(true)
     setLoadError(null)
     try {
-      const [comp, priceData] = await Promise.all([
-        api.getComprehensiveAnalysis(stockId).catch((e) => {
-          console.error('综合分析加载失败', e)
-          return null
-        }),
-        api.getStockPrices(stockId, d).catch((e) => {
-          console.error('价格数据加载失败', e)
-          return []
-        }),
-      ])
-      if (comp === null && priceData.length === 0) {
-        setLoadError('股票数据加载失败，请下拉刷新重试')
+      const comp = await api.getComprehensiveAnalysis(stockId).catch(() => null)
+      if (!comp) {
+        setLoadError('加载失败，请下拉刷新重试')
       }
       setAnalysis(comp)
-      setPrices(priceData)
-    } catch (e) {
-      console.error('loadData error', e)
+    } catch {
       setLoadError('加载失败，请检查网络后重试')
     }
     setLoading(false)
   }
 
-  const changeTimeframe = (d: number) => {
-    setDays(d)
-    setLoadError(null)
-    api.getStockPrices(stockId, d).then(setPrices).catch(() => {
-      Taro.showToast({ title: '价格数据加载失败', icon: 'none' })
-    })
-  }
-
-  const handleAISummary = async () => {
-    if (aiSummary) return
+  const handleAISummary = useCallback(async () => {
+    if (aiSummary || aiLoading) return
     setAiLoading(true)
     try {
       const res = await api.getAISummary(stockId)
       setAiSummary(res)
-    } catch {
-      Taro.showToast({ title: 'AI 分析失败', icon: 'none' })
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || 'AI 分析失败', icon: 'none' })
+    } finally {
+      setAiLoading(false)
     }
-    setAiLoading(false)
-  }
+  }, [aiSummary, aiLoading, stockId])
 
-  const handleAIPrediction = async () => {
-    if (aiPrediction) return
+  const handleAIPrediction = useCallback(async () => {
+    if (aiPrediction || aiPredLoading) return
     setAiPredLoading(true)
     try {
       const res = await api.getAIPrediction(stockId)
       setAIPrediction(res)
-    } catch {
-      Taro.showToast({ title: 'AI 预测失败', icon: 'none' })
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || 'AI 预测失败', icon: 'none' })
+    } finally {
+      setAiPredLoading(false)
     }
-    setAiPredLoading(false)
-  }
+  }, [aiPrediction, aiPredLoading, stockId])
 
-  // 错误状态
+  // ── 错误态 / 加载态 ──
+
   if (loadError) {
     return (
       <View className='detail-error'>
         <Text className='detail-error-icon'>⚠️</Text>
         <Text className='detail-error-text'>{loadError}</Text>
-        <View className='detail-error-btn' onClick={() => loadData(days)}>重新加载</View>
+        <View className='detail-error-btn' onClick={loadData}>重新加载</View>
       </View>
     )
   }
 
-  // 加载中
   if (loading) {
     return <View className='detail-loading'>加载中...</View>
   }
 
-  const stockInfo = analysis?.stock
-  const trendScore = analysis?.trend_score
-  const getTrendColor = (score: number) => {
-    if (score > 60) return '#FF6B6B'
-    if (score > 40) return '#FFB946'
-    return '#00C48C'
-  }
-  const trendBarWidth = (score: number) => `${Math.max(0, Math.min(100, score))}%`
+  // ── 解构（此时 stock 已保证非 null 才渲染） ──
 
-  const prediction = aiPrediction?.prediction
+  const stock = analysis?.stock ?? null
+  const trend: TrendScore | null = analysis?.trend_score ?? null
+  const latestPrice: number | undefined = analysis?.latest_price
+  const changePct: number | undefined = analysis?.change_pct
+  const volumeNum = analysis?.volume
+
+  const pred = aiPrediction?.prediction ?? null
+
+  // ── 渲染 ──
 
   return (
     <ScrollView className='detail-page' scrollY>
-      {/* 股票基本信息 */}
-      {stockInfo && (
+      {/* 基本信息 */}
+      {stock && (
         <View className='stock-header'>
           <View className='stock-title-row'>
-            <Text className='stock-detail-name'>{stockInfo.name}</Text>
-            <Text className='stock-detail-symbol'>{stockInfo.symbol}</Text>
-            <Text className={`stock-detail-market ${stockInfo.market?.toLowerCase()}`}>
-              {stockInfo.market === 'A' ? 'A股' : stockInfo.market === 'HK' ? '港股' : '美股'}
-            </Text>
+            <Text className='stock-detail-name'>{stock.name}</Text>
+            <Text className='stock-detail-symbol'>{stock.symbol}</Text>
+            <MarketBadge market={stock.market} />
           </View>
-          <View className='price-row'>
-            <Text className='current-price'>
-              ¥{analysis?.latest_price?.toFixed(2) || '--'}
-            </Text>
-            {analysis?.change_pct !== undefined && (
-              <Text className={`price-change ${analysis.change_pct >= 0 ? 'up' : 'down'}`}>
-                {analysis.change_pct >= 0 ? '+' : ''}{analysis.change_pct.toFixed(2)}%
-              </Text>
-            )}
-          </View>
-          <Text className='volume-row'>
-            成交量: {(analysis?.volume || 0).toLocaleString()}
-          </Text>
+
+          {/* 价格区域 */}
+          <StockPriceArea
+            latestPrice={latestPrice}
+            changePct={changePct}
+          />
+
+          {/* 成交量 */}
+          <VolumeRow volume={volumeNum} />
         </View>
       )}
 
-      {/* K 线图 */}
-      <View className='chart-section'>
-        <Text className='chart-title'>走势图</Text>
-        <View className='timeframes'>
-          {timeframes.map(tf => (
-            <Text
-              key={tf.days}
-              className={`timeframe-btn ${days === tf.days ? 'active' : ''}`}
-              onClick={() => changeTimeframe(tf.days)}
-            >
-              {tf.label}
-            </Text>
-          ))}
-        </View>
-        <KLineChart prices={prices} showMA />
-      </View>
-
       {/* 基本面 */}
-      {stockInfo && (
-        <View className='fundamentals'>
-          <Text className='section-title'>基本面</Text>
-          <View className='fund-grid'>
-            <View className='fund-item'>
-              <Text className='fund-label'>PE (TTM)</Text>
-              <Text className='fund-value'>{stockInfo.pe_ttm?.toFixed(2) || '--'}</Text>
-            </View>
-            <View className='fund-item'>
-              <Text className='fund-label'>PB</Text>
-              <Text className='fund-value'>{stockInfo.pb?.toFixed(2) || '--'}</Text>
-            </View>
-            <View className='fund-item'>
-              <Text className='fund-label'>市值</Text>
-              <Text className='fund-value'>
-                {stockInfo.market_cap
-                  ? (stockInfo.market_cap / 1e8).toFixed(1) + '亿'
-                  : '--'}
-              </Text>
-            </View>
-            <View className='fund-item'>
-              <Text className='fund-label'>股息率</Text>
-              <Text className='fund-value'>
-                {stockInfo.dividend_yield
-                  ? (stockInfo.dividend_yield * 100).toFixed(2) + '%'
-                  : '--'}
-              </Text>
-            </View>
-            <View className='fund-item'>
-              <Text className='fund-label'>营收增长</Text>
-              <Text className='fund-value'>
-                {stockInfo.revenue_growth
-                  ? (stockInfo.revenue_growth * 100).toFixed(1) + '%'
-                  : '--'}
-              </Text>
-            </View>
-            <View className='fund-item'>
-              <Text className='fund-label'>利润率</Text>
-              <Text className='fund-value'>
-                {stockInfo.profit_margin
-                  ? (stockInfo.profit_margin * 100).toFixed(1) + '%'
-                  : '--'}
-              </Text>
-            </View>
-          </View>
-        </View>
+      {stock && (
+        <FundamentalsSection stock={stock} />
       )}
 
       {/* 趋势评分 */}
-      {trendScore && (
-        <View className='trend-section'>
-          <Text className='section-title'>趋势评分</Text>
-          <View className='trend-bars'>
-            {[
-              { label: '短期', key: 'short', score: trendScore.short },
-              { label: '中期', key: 'medium', score: trendScore.medium },
-              { label: '长期', key: 'long', score: trendScore.long },
-              { label: '综合', key: 'composite', score: trendScore.composite },
-            ].map(item => (
-              <View key={item.key} className='trend-row'>
-                <Text className='trend-label'>{item.label}</Text>
-                <View className='trend-bar-bg'>
-                  <View
-                    className='trend-bar-fill'
-                    style={{
-                      width: trendBarWidth(item.score),
-                      background: getTrendColor(item.score),
-                    }}
-                  />
-                </View>
-                <Text className='trend-score' style={{ color: getTrendColor(item.score) }}>
-                  {item.score}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
+      {trend && (
+        <TrendSection trend={trend} />
       )}
 
       {/* AI 分析 */}
@@ -264,66 +217,198 @@ export default function StockDetail() {
           <Text className='ai-badge'>Powered by API</Text>
         </View>
 
-        {isLoggedIn === false ? (
-          <View className='ai-phone-lock'>
-            <Text className='ai-lock-icon'>🔐</Text>
-            <Text className='ai-lock-text'>请先登录使用 AI 功能</Text>
-            <View className='ai-lock-btn' onClick={() => Taro.switchTab({ url: '/pages/login/index' })}>
-              去登录
-            </View>
-          </View>
-        ) : !aiSummary && !aiLoading && (
+        {!isLoggedIn && <AILoginPrompt />}
+
+        {isLoggedIn && !aiSummary && (
           <View className='ai-btn' onClick={handleAISummary}>
-            生成 AI 分析
+            {aiLoading ? 'AI 正在分析，请稍候...' : '生成 AI 分析'}
           </View>
         )}
 
-        {aiLoading && (
-          <View className='ai-loading'>AI 正在分析，请稍候...</View>
+        {isLoggedIn && aiSummary && (
+          <AIAnalysisCard content={aiSummary.analysis} />
         )}
 
-        {aiSummary && (
-          <>
-            <View className='ai-content'>
-              <Text>{aiSummary.analysis}</Text>
-            </View>
-
-            {/* AI 预测 */}
-            {!prediction && !aiPredLoading && (
-              <View className='ai-btn' onClick={handleAIPrediction}>
-                生成涨跌预测
-              </View>
-            )}
-
-            {aiPredLoading && (
-              <View className='ai-loading'>正在生成预测...</View>
-            )}
-
-            {prediction && (
-              <View className='prediction-card'>
-                <Text
-                  className='prediction-direction'
-                  style={{
-                    color: prediction.direction === '看涨' ? '#FF6B6B'
-                      : prediction.direction === '看跌' ? '#00C48C' : '#FFB946'
-                  }}
-                >
-                  {prediction.direction} · {prediction.confidence}置信度
-                </Text>
-                <Text className='prediction-detail'>
-                  预估涨幅: {prediction.predicted_change}% · 时间: {prediction.timeframe}
-                  {'\n'}支撑位: {prediction.support} · 阻力位: {prediction.resistance}
-                </Text>
-                {prediction.risks?.length > 0 && (
-                  <View className='prediction-risk'>
-                    ⚠️ 风险提示: {prediction.risks.join('; ')}
-                  </View>
-                )}
-              </View>
-            )}
-          </>
+        {isLoggedIn && aiSummary && !pred && (
+          <View className='ai-btn' onClick={handleAIPrediction}>
+            {aiPredLoading ? '正在生成预测...' : '生成涨跌预测'}
+          </View>
         )}
+
+        {isLoggedIn && pred && <PredictionCard pred={pred} />}
       </View>
     </ScrollView>
+  )
+}
+
+// ─── 子组件 ────────────────────────────────────────────────
+
+/** 价格 + 涨跌幅 */
+const StockPriceArea = ({
+  latestPrice,
+  changePct,
+}: {
+  latestPrice: number | undefined
+  changePct: number | undefined
+}) => {
+  const dirClass = changeDirClass(changePct)
+  const color = priceColor(changePct)
+  const pctText = formatChangePct(changePct)
+
+  return (
+    <View className='price-row'>
+      <Text className='current-price'>¥{fmt2(latestPrice)}</Text>
+      <Text
+        className={`price-change${dirClass ? ' ' + dirClass : ''}`}
+        style={{ color }}
+      >
+        {pctText}
+      </Text>
+    </View>
+  )
+}
+
+/** 成交量 */
+const VolumeRow = ({ volume }: { volume: number | undefined }) => {
+  const v = num(volume, 0)
+  const text = typeof v === 'number' ? v.toLocaleString() : '0'
+  return <Text className='volume-row'>成交量: {text}</Text>
+}
+
+/** 基本面表格 */
+const FundamentalsSection = ({ stock }: { stock: NonNullable<ComprehensiveAnalysis['stock']> }) => (
+  <View className='fundamentals'>
+    <Text className='section-title'>基本面</Text>
+    <View className='fund-grid'>
+      <FundItem label='PE (TTM)' value={fmt2(stock.pe_ttm)} />
+      <FundItem label='PB' value={fmt2(stock.pb)} />
+      <FundItem label='市值' value={fmtCap(stock.market_cap)} />
+      <FundItem label='股息率' value={fmtPct(stock.dividend_yield)} />
+      <FundItem label='营收增长' value={fmtPct(stock.revenue_growth)} />
+      <FundItem label='利润率' value={fmtPct(stock.profit_margin)} />
+    </View>
+  </View>
+)
+
+/** 趋势评分 */
+const TrendSection = ({ trend }: { trend: TrendScore }) => {
+  const items = [
+    { label: '短期', key: 'short' as const, score: trend.short },
+    { label: '中期', key: 'medium' as const, score: trend.medium },
+    { label: '长期', key: 'long' as const, score: trend.long },
+    { label: '综合', key: 'composite' as const, score: trend.composite },
+  ]
+
+  return (
+    <View className='trend-section'>
+      <Text className='section-title'>趋势评分</Text>
+      <View className='trend-bars'>
+        {items.map(item => (
+          <TrendBar key={item.key} label={item.label} score={item.score} />
+        ))}
+      </View>
+    </View>
+  )
+}
+
+/** 单条趋势进度条 */
+const TrendBar = ({ label, score }: { label: string; score: number }) => {
+  const clampedWidth = `${Math.max(0, Math.min(100, score))}%`
+  const color = trendColor(score)
+
+  return (
+    <View className='trend-row'>
+      <Text className='trend-label'>{label}</Text>
+      <View className='trend-bar-bg'>
+        <View
+          className='trend-bar-fill'
+          style={{ width: clampedWidth, background: color }}
+        />
+      </View>
+      <Text className='trend-score' style={{ color }}>
+        {score}
+      </Text>
+    </View>
+  )
+}
+
+/** 基本面单项 */
+const FundItem = ({ label, value }: { label: string; value: string | number }) => (
+  <View className='fund-item'>
+    <Text className='fund-label'>{label}</Text>
+    <Text className='fund-value'>{value}</Text>
+  </View>
+)
+
+/** AI 分析卡片 — 渲染 summary 接口返回的结构化分析 */
+const AIAnalysisCard = ({ content }: { content: AIAnalysisContent }) => {
+  const scoreColor = content.score > 60 ? '#FF6B6B' : content.score > 40 ? '#FFB946' : '#00C48C'
+  const trendLabel = content.trend === '看涨' ? '📈' : content.trend === '看跌' ? '📉' : '➡️'
+
+  return (
+    <View className='ai-content'>
+      <View className='analysis-header'>
+        <Text className='analysis-trend' style={{ color: scoreColor }}>
+          {trendLabel} {content.trend}
+        </Text>
+        <Text className='analysis-score' style={{ color: scoreColor }}>
+          评分 {content.score}
+        </Text>
+      </View>
+
+      <View className='analysis-summary'>
+        <Text>{content.summary}</Text>
+      </View>
+
+      <View className='analysis-levels'>
+        <Text className='analysis-label'>支撑位</Text>
+        <Text className='analysis-value'>{content.support}</Text>
+        <Text className='analysis-label'>阻力位</Text>
+        <Text className='analysis-value'>{content.resistance}</Text>
+      </View>
+
+      <View className='analysis-warning'>
+        <Text className='analysis-warning-text'>⚠️ {content.risk_warning}</Text>
+      </View>
+    </View>
+  )
+}
+
+/** AI 登录提示 */
+const AILoginPrompt = () => (
+  <View className='ai-phone-lock'>
+    <Text className='ai-lock-icon'>🔐</Text>
+    <Text className='ai-lock-text'>请先登录使用 AI 功能</Text>
+    <View className='ai-lock-btn' onClick={() => Taro.switchTab({ url: '/pages/login/index' })}>
+      去登录
+    </View>
+  </View>
+)
+
+/** 预测卡片 */
+const PredictionCard = ({
+  pred,
+}: {
+  pred: NonNullable<AIPredictionResponse['prediction']>
+}) => {
+  const cLabel = confidenceLabel(pred.confidence)
+  const dir = pred.direction
+  const color = directionColor(dir)
+
+  return (
+    <View className='prediction-card'>
+      <Text className='prediction-direction' style={{ color }}>
+        {dir} · {cLabel} 置信度
+      </Text>
+      <Text className='prediction-detail'>
+        预估涨幅: {pred.predicted_change}% · 时间: {pred.timeframe}
+        {'\n'}支撑位: {pred.support} · 阻力位: {pred.resistance}
+      </Text>
+      {pred.risks.length > 0 && (
+        <View className='prediction-risk'>
+          ⚠️ 风险提示: {pred.risks.join('; ')}
+        </View>
+      )}
+    </View>
   )
 }
