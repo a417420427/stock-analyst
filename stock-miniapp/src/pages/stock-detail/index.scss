@@ -75,6 +75,162 @@
   color: var(--text-secondary);
 }
 
+/* ── 快速买入按钮 ── */
+.buy-quick-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  margin-top: 16rpx;
+  padding: 18rpx 0;
+  background: linear-gradient(135deg, #4F6EF7, #6C5CE7);
+  border-radius: 14rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #fff;
+}
+.buy-quick-btn:active {
+  opacity: 0.85;
+}
+.buy-quick-icon {
+  font-size: 30rpx;
+}
+
+/* ── 买入弹窗遮罩 ── */
+.buy-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: flex-end;
+  z-index: 999;
+  animation: fadeIn 0.2s ease;
+}
+
+.buy-modal {
+  width: 100%;
+  background: var(--card, #1e1e2e);
+  border-radius: 28rpx 28rpx 0 0;
+  padding: 32rpx 32rpx 60rpx;
+  animation: slideUp 0.25s ease;
+}
+
+.buy-modal-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--text, #e0e0e0);
+  text-align: center;
+  margin-bottom: 28rpx;
+}
+
+.buy-field {
+  margin-bottom: 24rpx;
+}
+
+.buy-label {
+  display: block;
+  font-size: 26rpx;
+  color: var(--text-secondary, #888);
+  margin-bottom: 10rpx;
+}
+
+.buy-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 24rpx;
+  background: #f0f2f5;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+  color: #333;
+  min-height: 40rpx;
+}
+.buy-picker-arrow {
+  font-size: 20rpx;
+  color: #999;
+}
+
+.buy-input {
+  padding: 12rpx 24rpx;
+  background: #f0f2f5 !important;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+  color: #333 !important;
+  -webkit-text-fill-color: #333;
+  text-align: right;
+  caret-color: #4F6EF7;
+  min-height: 72rpx;
+}
+
+/* Input 组件的 placeholder 颜色 */
+.buy-input::-webkit-input-placeholder {
+  color: #999;
+  -webkit-text-fill-color: #999;
+}
+
+/* 覆盖小程序默认 Input 暗色样式 */
+.buy-input .weui-input,
+.buy-input .taro-input {
+  color: #333 !important;
+  -webkit-text-fill-color: #333 !important;
+  background: transparent !important;
+}
+
+.buy-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  margin-bottom: 28rpx;
+  border-top: 1rpx solid var(--border, #333);
+}
+.buy-total-label {
+  font-size: 26rpx;
+  color: var(--text-secondary, #888);
+}
+.buy-total-value {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #FF6B6B;
+}
+
+.buy-actions {
+  display: flex;
+  gap: 20rpx;
+}
+.buy-btn {
+  flex: 1;
+  text-align: center;
+  padding: 22rpx 0;
+  border-radius: 14rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+.buy-btn.cancel {
+  background: var(--bg-secondary, #2a2a3e);
+  color: var(--text-secondary, #888);
+}
+.buy-btn.confirm {
+  background: linear-gradient(135deg, #4F6EF7, #6C5CE7);
+  color: #fff;
+}
+.buy-btn.confirm:active {
+  opacity: 0.85;
+}
+.buy-btn.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 /* K 线图 */
 .chart-section {
   background: var(--card);

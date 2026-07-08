@@ -1,9 +1,9 @@
-import { View, Text, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView, Input, Picker } from '@tarojs/components'
 import { useRouter, useLoad, usePullDownRefresh } from '@tarojs/taro'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '../../services/api'
-import type { ComprehensiveAnalysis, AIAnalysisContent, AIAnalysisResponse, AIPredictionResponse, TrendScore } from '../../types'
+import type { ComprehensiveAnalysis, AIAnalysisContent, AIAnalysisResponse, AIPredictionResponse, TrendScore, SimulatedAccount } from '../../types'
 import './index.scss'
 
 // ─── helpers ───────────────────────────────────────────────
@@ -94,6 +94,13 @@ export default function StockDetail() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiPredLoading, setAiPredLoading] = useState(false)
 
+  // ── 买入 ──
+  const [buyModalVisible, setBuyModalVisible] = useState(false)
+  const [accounts, setAccounts] = useState<SimulatedAccount[]>([])
+  const [selectedAccountIdx, setSelectedAccountIdx] = useState(0)
+  const [buyQuantity, setBuyQuantity] = useState('100')
+  const [buying, setBuying] = useState(false)
+
   useLoad(async () => {
     if (!stockId || isNaN(stockId)) {
       setLoadError('参数错误')
@@ -150,6 +157,51 @@ export default function StockDetail() {
     }
   }, [aiPrediction, aiPredLoading, stockId])
 
+  // ── 买入操作 ──────────────────────────────────────────
+
+  const openBuyModal = useCallback(async () => {
+    try {
+      const list = await api.getAccounts()
+      if (!list.length) {
+        Taro.showToast({ title: '暂无组合，请先去创建', icon: 'none' })
+        return
+      }
+      setAccounts(list)
+      setSelectedAccountIdx(0)
+      setBuyQuantity('100')
+      setBuyModalVisible(true)
+    } catch {
+      Taro.showToast({ title: '获取组合列表失败', icon: 'none' })
+    }
+  }, [])
+
+  const handleBuy = useCallback(async () => {
+    if (!stock || !accounts.length) return
+    const qty = parseInt(buyQuantity, 10)
+    if (!qty || qty <= 0) {
+      Taro.showToast({ title: '请输入有效的数量', icon: 'none' })
+      return
+    }
+    const account = accounts[selectedAccountIdx]
+    setBuying(true)
+    try {
+      await api.createTrade(account.id, {
+        stock_id: stock.id,
+        side: 'buy',
+        quantity: qty,
+        price: latestPrice,
+        order_type: 'market',
+        note: `个股分析页面买入`,
+      })
+      Taro.showToast({ title: `已买入 ${stock.name} × ${qty}`, icon: 'success' })
+      setBuyModalVisible(false)
+    } catch (e: any) {
+      Taro.showToast({ title: e?.message || '买入失败', icon: 'none' })
+    } finally {
+      setBuying(false)
+    }
+  }, [stock, accounts, selectedAccountIdx, buyQuantity, latestPrice])
+
   // ── 错误态 / 加载态 ──
 
   if (loadError) {
@@ -190,25 +242,26 @@ export default function StockDetail() {
           </View>
 
           {/* 价格区域 */}
-          <StockPriceArea
-            latestPrice={latestPrice}
-            changePct={changePct}
-          />
+          <StockPriceArea latestPrice={latestPrice} changePct={changePct} />
 
           {/* 成交量 */}
           <VolumeRow volume={volumeNum} />
+
+          {/* 快速买入 */}
+          {isLoggedIn && (
+            <View className='buy-quick-btn' onClick={openBuyModal}>
+              <Text className='buy-quick-icon'>💼</Text>
+              <Text>快速买入</Text>
+            </View>
+          )}
         </View>
       )}
 
       {/* 基本面 */}
-      {stock && (
-        <FundamentalsSection stock={stock} />
-      )}
+      {stock && <FundamentalsSection stock={stock} />}
 
       {/* 趋势评分 */}
-      {trend && (
-        <TrendSection trend={trend} />
-      )}
+      {trend && <TrendSection trend={trend} />}
 
       {/* AI 分析 */}
       <View className='ai-section'>
@@ -237,6 +290,21 @@ export default function StockDetail() {
 
         {isLoggedIn && pred && <PredictionCard pred={pred} />}
       </View>
+
+      {/* 买入弹窗 */}
+      {buyModalVisible && stock && (
+        <BuyModal
+          accountNames={accounts.map(a => a.name)}
+          selectedIdx={selectedAccountIdx}
+          onSelectAccount={setSelectedAccountIdx}
+          quantity={buyQuantity}
+          onChangeQuantity={setBuyQuantity}
+          latestPrice={latestPrice}
+          onConfirm={handleBuy}
+          onClose={() => setBuyModalVisible(false)}
+          buying={buying}
+        />
+      )}
     </ScrollView>
   )
 }
@@ -409,6 +477,85 @@ const PredictionCard = ({
           ⚠️ 风险提示: {pred.risks.join('; ')}
         </View>
       )}
+    </View>
+  )
+}
+
+/** 买入弹窗 */
+const BuyModal = ({
+  accountNames,
+  selectedIdx,
+  onSelectAccount,
+  quantity,
+  onChangeQuantity,
+  latestPrice,
+  onConfirm,
+  onClose,
+  buying,
+}: {
+  accountNames: string[]
+  selectedIdx: number
+  onSelectAccount: (i: number) => void
+  quantity: string
+  onChangeQuantity: (v: string) => void
+  latestPrice: number | undefined
+  onConfirm: () => void
+  onClose: () => void
+  buying: boolean
+}) => {
+  const range = accountNames.map((_, i) => String(i))
+  const total = (parseInt(quantity, 10) || 0) * (latestPrice || 0)
+
+  return (
+    <View className='buy-overlay' onClick={onClose}>
+      <View className='buy-modal' onClick={e => e.stopPropagation()}>
+        <Text className='buy-modal-title'>快速买入</Text>
+
+        {/* 选择组合 */}
+        <View className='buy-field'>
+          <Text className='buy-label'>目标组合</Text>
+          <Picker
+            mode='selector'
+            range={accountNames}
+            value={selectedIdx}
+            onChange={e => onSelectAccount(parseInt(e.detail.value as string, 10))}
+          >
+            <View className='buy-picker'>
+              <Text>{accountNames[selectedIdx]}</Text>
+              <Text className='buy-picker-arrow'>▼</Text>
+            </View>
+          </Picker>
+        </View>
+
+        {/* 数量 */}
+        <View className='buy-field'>
+          <Text className='buy-label'>买入数量（股）</Text>
+          <Input
+            className='buy-input'
+            type='number'
+            value={quantity}
+            onInput={e => onChangeQuantity(e.detail.value)}
+            placeholder='输入数量'
+          />
+        </View>
+
+        {/* 预估金额 */}
+        <View className='buy-total'>
+          <Text className='buy-total-label'>预估金额</Text>
+          <Text className='buy-total-value'>¥{total.toFixed(2)}</Text>
+        </View>
+
+        {/* 按钮 */}
+        <View className='buy-actions'>
+          <View className='buy-btn cancel' onClick={onClose}>取消</View>
+          <View
+            className={`buy-btn confirm${buying ? ' disabled' : ''}`}
+            onClick={buying ? undefined : onConfirm}
+          >
+            {buying ? '买入中...' : '确认买入'}
+          </View>
+        </View>
+      </View>
     </View>
   )
 }
