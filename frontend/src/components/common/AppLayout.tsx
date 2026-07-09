@@ -1,4 +1,5 @@
 import { Layout, Menu, Space, Input, AutoComplete, Dropdown, Button } from 'antd';
+import AIQuotaBadge from './AIQuotaBadge';
 import { useState, useEffect } from 'react';
 import {
   DashboardOutlined,
@@ -125,6 +126,7 @@ export default function AppLayout() {
           </div>
           <Space>
             <TradingCalendar />
+            <AIQuotaBadge compact />
             <span style={{ color: '#86909c', fontSize: 13 }}>
               {new Date().toLocaleString('zh-CN', {
                 timeZone: 'Asia/Shanghai',

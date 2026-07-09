@@ -12,6 +12,7 @@ import {
 import ReactEChartsCore from 'echarts-for-react';
 import dayjs from 'dayjs';
 import api from '../services/api';
+import AIQuotaBadge from '../components/common/AIQuotaBadge';
 
 const { Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -540,6 +541,7 @@ export default function AnalysisPage() {
                 <Space size={4}>
                   <RobotOutlined />
                   <span>AI 对话</span>
+                  <AIQuotaBadge compact action="summary" />
                 </Space>
               ),
               children: (
@@ -589,9 +591,10 @@ export default function AnalysisPage() {
                   )}
 
                   <Divider />
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    💡 提示：可以在策略引擎中用 AI 条件来判断股票（如"当前适合买入吗？"），也可以在 AI 设置中配置不同的模型
-                  </Text>
+                  <div style={{ fontSize: 12, color: '#999', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>💡 可以在策略引擎中用 AI 条件来判断股票，或在 AI 设置中配置不同模型</span>
+                    <AIQuotaBadge compact action="summary" />
+                  </div>
                 </div>
               ),
             },

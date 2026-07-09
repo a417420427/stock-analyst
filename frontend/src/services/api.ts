@@ -22,7 +22,10 @@ api.interceptors.request.use(
   (err) => Promise.reject(err)
 );
 
-// 响应拦截器 — 401 跳登录
+// 全局 429 处理：触发可自定义的事件
+const QUOTA_EXHAUSTED_EVENT = 'stock-analyst:quota-exhausted';
+
+// 响应拦截器 — 401 跳登录 / 429 触发配额事件
 api.interceptors.response.use(
   (res) => res,
   (err) => {
@@ -32,9 +35,16 @@ api.interceptors.response.use(
       // 跳转到登录页
       window.location.href = '/auth';
     }
+    if (err.response?.status === 429) {
+      // 触发全局配额超限事件
+      const detail = err.response?.data?.detail || '调用已达上限';
+      window.dispatchEvent(new CustomEvent(QUOTA_EXHAUSTED_EVENT, { detail: { detail } }));
+    }
     console.error('API Error:', err.response?.data || err.message);
     return Promise.reject(err);
   }
 );
+
+export { QUOTA_EXHAUSTED_EVENT };
 
 export default api;

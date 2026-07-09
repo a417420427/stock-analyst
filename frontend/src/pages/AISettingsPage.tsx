@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
-  Card, Form, Input, Select, Button, message, Space, Tag,
+  Card, Form, Input, Select, Button, message, Space, Tag, Progress, Spin,
   Descriptions, Divider, Tooltip,
 } from 'antd';
+import AIQuotaBadge from '../components/common/AIQuotaBadge';
+import { useAIQuota, QuotaItem } from '../hooks/useAIQuota';
 import { CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import api from '../services/api';
 
@@ -46,6 +48,7 @@ export default function AISettingsPage() {
   const [saving, setSaving] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState('openai');
   const [form] = Form.useForm();
+  const { quotaData, loading: quotaLoading, refresh: refreshQuota } = useAIQuota();
 
   useEffect(() => {
     loadConfig();
@@ -106,6 +109,51 @@ export default function AISettingsPage() {
             </>
           )}
         </Descriptions>
+      </Card>
+
+      {/* AI 配额展示 */}
+      <Card title="📊 AI 配额" style={{ marginBottom: 16 }}>
+        {quotaLoading ? (
+          <Spin size="small" />
+        ) : !quotaData ? (
+          <span style={{ color: '#999', fontSize: 13 }}>登录后可查看配额</span>
+        ) : (
+          <div>
+            <div style={{ fontSize: 12, color: '#999', marginBottom: 12 }}>
+              今日配额（{quotaData.date}）- 每个动作每天独立计数
+            </div>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              {quotaData.quotas.map((q: QuotaItem) => {
+                const exhausted = q.limit > 0 && q.remaining <= 0;
+                const pct = q.limit > 0 ? (q.used / q.limit) * 100 : 0;
+                return (
+                  <div key={q.action} style={{ marginBottom: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 2 }}>
+                      <Space size={4}>
+                        <span>{q.label}</span>
+                      </Space>
+                      <span style={{ color: exhausted ? '#ef4444' : '#666', fontWeight: exhausted ? 700 : 400 }}>
+                        {q.limit > 0 ? `${q.used} / ${q.limit} 次` : '不限次'}
+                      </span>
+                    </div>
+                    {q.limit > 0 && (
+                      <Progress
+                        percent={Math.min(pct, 100)}
+                        size="small"
+                        showInfo={false}
+                        strokeColor={exhausted ? '#ef4444' : pct > 80 ? '#faad14' : '#52c41a'}
+                        trailColor="#f0f0f0"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </Space>
+            <Button size="small" type="link" onClick={refreshQuota} style={{ padding: 0, marginTop: 8, fontSize: 12 }}>
+              刷新
+            </Button>
+          </div>
+        )}
       </Card>
 
       <Card title="⚙️ 配置 AI">

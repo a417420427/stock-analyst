@@ -8,6 +8,7 @@ import {
   FundViewOutlined, RobotOutlined,
   RiseOutlined, FallOutlined, WarningOutlined,
 } from '@ant-design/icons';
+import AIQuotaBadge from '../common/AIQuotaBadge';
 import * as echarts from 'echarts';
 import dayjs from 'dayjs';
 import api from '../../services/api';
@@ -246,6 +247,7 @@ export default function StockDetailModal({ stockId, open, onClose }: Props) {
               <Button icon={<RobotOutlined />} onClick={loadPrediction} loading={predictLoading}>
                 AI 预测
               </Button>
+              <AIQuotaBadge compact action="prediction" />
               <Button type="primary" href={`/analysis/${data.stock.id}`} icon={<FundViewOutlined />}>
                 查看完整分析
               </Button>

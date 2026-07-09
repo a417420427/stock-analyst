@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import api from '../services/api';
 import dayjs from 'dayjs';
+import AIQuotaBadge from '../components/common/AIQuotaBadge';
 
 const { TabPane } = Tabs;
 const { TextArea } = Input;
@@ -799,6 +800,7 @@ export default function PortfolioPage() {
           <Space>
             <RobotOutlined style={{ color: '#722ed1' }} />
             <span>AI 选股</span>
+            <AIQuotaBadge compact action="ai_pick" />
             {aiStep === 'preview' && <Tag color="blue">预览</Tag>}
             {aiStep === 'creating' && <Tag color="processing">创建中</Tag>}
             {aiStep === 'done' && <Tag color="green">完成</Tag>}
