@@ -1,5 +1,9 @@
 import { defineConfig, type UserConfigExport } from '@tarojs/cli'
 import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin'
+import { config } from 'dotenv'
+
+// 加载 .env 文件到 process.env
+config({ path: require('path').resolve(__dirname, '../.env') })
 
 export default defineConfig<'webpack5'>(async (merge) => {
   const baseConfig: UserConfigExport<'webpack5'> = {
@@ -15,7 +19,9 @@ export default defineConfig<'webpack5'>(async (merge) => {
     sourceRoot: 'src',
     outputRoot: 'dist',
     plugins: [],
-    defineConstants: {},
+    defineConstants: {
+      'process.env.API_BASE_URL': JSON.stringify(process.env.API_BASE_URL || 'http://127.0.0.1:8000/api/v1'),
+    },
     copy: {
       patterns: [],
       options: {}

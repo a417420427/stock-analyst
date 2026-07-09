@@ -8,7 +8,9 @@ import type {
 } from '../types'
 
 // 服务端 API 地址
-const BASE_URL = 'http://127.0.0.1:8000/api/v1'
+// 项目根目录下创建 .env 文件配置: API_BASE_URL=http://39.106.172.134:8000/api/v1
+// 或通过 Taro 的 defineConstants 注入
+const BASE_URL = process.env.API_BASE_URL || 'http://127.0.0.1:8000/api/v1'
 
 // Token 管理
 function getToken(): string | null {

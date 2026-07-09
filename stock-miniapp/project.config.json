@@ -1,8 +1,8 @@
 {
   "miniprogramRoot": "./dist",
   "projectname": "stock-miniapp",
-  "description": "多市场股票智能分析",
-  "appid": "wx91ab130a04745bd8",
+  "description": "AI行情助手",
+  "appid": "wx9cb10b064941e9f8",
   "setting": {
     "urlCheck": false,
     "es6": false,

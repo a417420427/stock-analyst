@@ -11,7 +11,7 @@ export default defineAppConfig({
   window: {
     backgroundColor: '#F5F7FA',
     backgroundTextStyle: 'dark',
-    navigationBarTitleText: '智能股票分析',
+    navigationBarTitleText: 'AI行情助手',
     navigationBarBackgroundColor: '#F5F7FA',
     navigationBarTextStyle: 'black'
   },
