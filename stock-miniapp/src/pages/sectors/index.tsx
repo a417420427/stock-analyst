@@ -9,6 +9,7 @@ import './index.scss'
 export default function SectorsPage() {
   const [sectors, setSectors] = useState<SectorData[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [showAll, setShowAll] = useState<Set<string>>(new Set()) // 完全展开
   const [loading, setLoading] = useState(true)
 
   useLoad(async () => {
@@ -33,6 +34,15 @@ export default function SectorsPage() {
 
   const toggleExpand = (name: string) => {
     setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
+
+  const toggleShowAll = (name: string) => {
+    setShowAll(prev => {
       const next = new Set(prev)
       if (next.has(name)) next.delete(name)
       else next.add(name)
@@ -80,22 +90,32 @@ export default function SectorsPage() {
 
             {expanded.has(sector.sector) && sector.stocks.length > 0 && (
               <View className='sector-stocks'>
-                {sector.stocks.slice(0, 10).map(s => (
-                  <View
-                    key={s.id}
-                    className='sector-stock-row'
-                    onClick={() => goToStock(s.id)}
-                  >
-                    <Text className='sector-stock-name'>{s.name}</Text>
-                    <Text className='sector-stock-change'>
-                      <Text className={s.change >= 0 ? 'up' : 'down'}>
-                        {s.change >= 0 ? '+' : ''}{s.change.toFixed(2)}%
+                {sector.stocks
+                  .slice(0, showAll.has(sector.sector) ? undefined : 10)
+                  .map(s => (
+                    <View
+                      key={s.id}
+                      className='sector-stock-row'
+                      onClick={() => goToStock(s.id)}
+                    >
+                      <Text className='sector-stock-name'>{s.name}</Text>
+                      <Text className='sector-stock-market'>{s.market}</Text>
+                      <Text className='sector-stock-change'>
+                        <Text className={s.change >= 0 ? 'up' : 'down'}>
+                          {s.change >= 0 ? '+' : ''}{s.change.toFixed(2)}%
+                        </Text>
                       </Text>
-                    </Text>
-                  </View>
-                ))}
-                {sector.stocks.length > 10 && (
-                  <Text className='load-more'>还有 {sector.stocks.length - 10} 只...</Text>
+                    </View>
+                  ))}
+                {!showAll.has(sector.sector) && sector.stocks.length > 10 && (
+                  <Text className='load-more' onClick={() => toggleShowAll(sector.sector)}>
+                    还有 {sector.stocks.length - 10} 只，点击展开全部 ›
+                  </Text>
+                )}
+                {showAll.has(sector.sector) && sector.stocks.length > 10 && (
+                  <Text className='load-more' onClick={() => toggleShowAll(sector.sector)}>
+                    收起 ›
+                  </Text>
                 )}
               </View>
             )}

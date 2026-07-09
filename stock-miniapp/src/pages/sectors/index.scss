@@ -64,7 +64,13 @@
 
 .sector-stock-name {
   color: var(--text);
-  flex: 1;
+}
+
+.sector-stock-market {
+  font-size: 20rpx;
+  color: var(--text-secondary);
+  margin-left: 8rpx;
+  margin-right: auto;
 }
 
 .sector-stock-price {
@@ -89,4 +95,15 @@
 .empty-sector-icon {
   font-size: 64rpx;
   margin-bottom: 16rpx;
+}
+
+.load-more {
+  display: block;
+  text-align: center;
+  padding: 16rpx 0 8rpx;
+  font-size: 24rpx;
+  color: #4F6EF7;
+}
+.load-more:active {
+  opacity: 0.6;
 }

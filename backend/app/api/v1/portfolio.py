@@ -528,9 +528,9 @@ async def ai_create_portfolio(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """AI 选股并直接创建模拟账户+买入"""
-    from app.utils.ai_quota import check_and_increment
-    await check_and_increment(user.id, "ai_pick", db)
+    """AI 选股并直接创建模拟账户+买入
+    注意：配额在 ai-generate 阶段已扣减，此处不再重复计费。
+    """
 
     from app.services.ai import AIService
 
