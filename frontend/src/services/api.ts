@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: '/stock/api/v1',
   timeout: 120000,
 });
 
@@ -33,7 +33,7 @@ api.interceptors.response.use(
       // 清除 token
       localStorage.removeItem('stock-analyst-auth');
       // 跳转到登录页
-      window.location.href = '/auth';
+      window.location.href = '/stock/auth';
     }
     if (err.response?.status === 429) {
       // 触发全局配额超限事件
